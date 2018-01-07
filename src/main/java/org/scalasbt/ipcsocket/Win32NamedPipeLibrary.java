@@ -25,7 +25,7 @@ import com.sun.jna.ptr.IntByReference;
 
 import com.sun.jna.win32.W32APIOptions;
 
-public interface Win32NamedPipeLibrary extends WinNT {
+public interface Win32NamedPipeLibrary extends Library, WinNT {
     int PIPE_ACCESS_DUPLEX = 3;
     int PIPE_UNLIMITED_INSTANCES = 255;
     int FILE_FLAG_FIRST_PIPE_INSTANCE = 524288;
@@ -45,6 +45,14 @@ public interface Win32NamedPipeLibrary extends WinNT {
             int nInBufferSize,
             int nDefaultTimeOut,
             SECURITY_ATTRIBUTES lpSecurityAttributes);
+    HANDLE CreateFile(
+            String lpFileName,
+            int dwDesiredAccess,
+            int dwSharedMode,
+            SECURITY_ATTRIBUTES lpSecurityAttributes,
+            int dwCreationDisposition,
+            int dwFlagsAndAttributes,
+            HANDLE hTemplateFile);
     boolean ConnectNamedPipe(
             HANDLE hNamedPipe,
             Pointer lpOverlapped);
