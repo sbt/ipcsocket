@@ -27,6 +27,8 @@ import java.nio.ByteBuffer;
 
 import java.net.Socket;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Implements a {@link Socket} backed by a native Unix domain socket.
  *
@@ -38,6 +40,28 @@ public class UnixDomainSocket extends Socket {
   private final ReferenceCountedFileDescriptor fd;
   private final InputStream is;
   private final OutputStream os;
+
+  /**
+   * Creates a Unix domain socket backed by a file path.
+   */
+  public UnixDomainSocket(String path) throws IOException {
+    try {
+      AtomicInteger fd = new AtomicInteger(
+        UnixDomainSocketLibrary.socket(
+        UnixDomainSocketLibrary.PF_LOCAL,
+          UnixDomainSocketLibrary.SOCK_STREAM,
+          0));
+      UnixDomainSocketLibrary.SockaddrUn address =
+        new UnixDomainSocketLibrary.SockaddrUn(path);
+      int socketFd = fd.get();
+      UnixDomainSocketLibrary.connect(socketFd, address, address.size());
+      this.fd = new ReferenceCountedFileDescriptor(socketFd);
+      this.is = new UnixDomainSocketInputStream();
+      this.os = new UnixDomainSocketOutputStream();
+    } catch (LastErrorException e) {
+      throw new IOException(e);
+    }
+  }
 
   /**
    * Creates a Unix domain socket backed by a native file descriptor.
