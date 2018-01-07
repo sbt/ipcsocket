@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import com.sun.jna.LastErrorException;
 import com.sun.jna.Native;
@@ -32,7 +32,7 @@ import java.util.List;
 /**
  * Utility class to bridge native Unix domain socket calls to Java using JNA.
  */
-public class NGUnixDomainSocketLibrary {
+public class UnixDomainSocketLibrary {
   public static final int PF_LOCAL = 1;
   public static final int AF_LOCAL = 1;
   public static final int SOCK_STREAM = 1;
@@ -41,7 +41,7 @@ public class NGUnixDomainSocketLibrary {
   public static final int SHUT_WR = 1;
 
   // Utility class, do not instantiate.
-  private NGUnixDomainSocketLibrary() { }
+  private UnixDomainSocketLibrary() { }
 
   // BSD platforms write a length byte at the start of struct sockaddr_un.
   private static final boolean HAS_SUN_LEN =

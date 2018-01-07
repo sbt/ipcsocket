@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import com.sun.jna.LastErrorException;
 
@@ -71,7 +71,7 @@ public class ReferenceCountedFileDescriptor {
 
   private void doClose() throws IOException {
     try {
-      NGUnixDomainSocketLibrary.close(fd);
+      UnixDomainSocketLibrary.close(fd);
       fd = -1;
     } catch (LastErrorException e) {
       throw new IOException(e);

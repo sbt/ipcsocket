@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import com.sun.jna.platform.win32.WinBase;
 import com.sun.jna.platform.win32.WinError;
@@ -31,20 +31,34 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class NGWin32NamedPipeServerSocket extends ServerSocket {
-    private static final NGWin32NamedPipeLibrary API = NGWin32NamedPipeLibrary.INSTANCE;
+public class Win32NamedPipeServerSocket extends ServerSocket {
+    private static final Win32NamedPipeLibrary API = Win32NamedPipeLibrary.INSTANCE;
     private static final String WIN32_PIPE_PREFIX = "\\\\.\\pipe\\";
     private static final int BUFFER_SIZE = 65535;
     private final LinkedBlockingQueue<HANDLE> openHandles;
     private final LinkedBlockingQueue<HANDLE> connectedHandles;
-    private final NGWin32NamedPipeSocket.CloseCallback closeCallback;
+    private final Win32NamedPipeSocket.CloseCallback closeCallback;
     private final String path;
     private final int maxInstances;
     private final HANDLE lockHandle;
     private final boolean requireStrictLength;
 
-    public NGWin32NamedPipeServerSocket(String path) throws IOException {
-        this(NGWin32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path);
+    public Win32NamedPipeServerSocket(String path) throws IOException {
+        this(Win32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path);
+    }
+
+    /**
+     * The doc for InputStream#read(byte[] b, int off, int len) states that
+     * "An attempt is made to read as many as len bytes, but a smaller number may be read."
+     * However, using requireStrictLength, Win32NamedPipeSocketInputStream can require that
+     * len matches up exactly the number of bytes to read.
+     */
+    public Win32NamedPipeServerSocket(String path, boolean requireStrictLength) throws IOException {
+        this(Win32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path, requireStrictLength);
+    }
+
+    public Win32NamedPipeServerSocket(int maxInstances, String path) throws IOException {
+        this(maxInstances, path, Win32NamedPipeSocket.DEFAULT_REQUIRE_STRICT_LENGTH);
     }
 
     /**
@@ -53,21 +67,7 @@ public class NGWin32NamedPipeServerSocket extends ServerSocket {
      * However, using requireStrictLength, NGWin32NamedPipeSocketInputStream can require that
      * len matches up exactly the number of bytes to read.
      */
-    public NGWin32NamedPipeServerSocket(String path, boolean requireStrictLength) throws IOException {
-        this(NGWin32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path, requireStrictLength);
-    }
-
-    public NGWin32NamedPipeServerSocket(int maxInstances, String path) throws IOException {
-        this(maxInstances, path, NGWin32NamedPipeSocket.DEFAULT_REQUIRE_STRICT_LENGTH);
-    }
-
-    /**
-     * The doc for InputStream#read(byte[] b, int off, int len) states that
-     * "An attempt is made to read as many as len bytes, but a smaller number may be read."
-     * However, using requireStrictLength, NGWin32NamedPipeSocketInputStream can require that
-     * len matches up exactly the number of bytes to read.
-     */
-    public NGWin32NamedPipeServerSocket(
+    public Win32NamedPipeServerSocket(
             int maxInstances,
             String path,
             boolean requireStrictLength) throws IOException {
@@ -91,14 +91,14 @@ public class NGWin32NamedPipeServerSocket extends ServerSocket {
         String lockPath = this.path + "_lock";
         lockHandle = API.CreateNamedPipe(
                 lockPath,
-                NGWin32NamedPipeLibrary.FILE_FLAG_FIRST_PIPE_INSTANCE | NGWin32NamedPipeLibrary.PIPE_ACCESS_DUPLEX,
+                Win32NamedPipeLibrary.FILE_FLAG_FIRST_PIPE_INSTANCE | Win32NamedPipeLibrary.PIPE_ACCESS_DUPLEX,
                 0,
                 1,
                 BUFFER_SIZE,
                 BUFFER_SIZE,
                 0,
                 null);
-        if (lockHandle == NGWin32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
+        if (lockHandle == Win32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
             throw new IOException(String.format("Could not create lock for %s, error %d", lockPath, API.GetLastError()));
         } else {
             if (!API.DisconnectNamedPipe(lockHandle)) {
@@ -115,14 +115,14 @@ public class NGWin32NamedPipeServerSocket extends ServerSocket {
     public Socket accept() throws IOException {
         HANDLE handle = API.CreateNamedPipe(
                 path,
-                NGWin32NamedPipeLibrary.PIPE_ACCESS_DUPLEX | WinNT.FILE_FLAG_OVERLAPPED,
+                Win32NamedPipeLibrary.PIPE_ACCESS_DUPLEX | WinNT.FILE_FLAG_OVERLAPPED,
                 0,
                 maxInstances,
                 BUFFER_SIZE,
                 BUFFER_SIZE,
                 0,
                 null);
-        if (handle == NGWin32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
+        if (handle == Win32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
             throw new IOException(String.format("Could not create named pipe, error %d", API.GetLastError()));
         }
         openHandles.add(handle);
@@ -136,19 +136,19 @@ public class NGWin32NamedPipeServerSocket extends ServerSocket {
         if (immediate) {
             openHandles.remove(handle);
             connectedHandles.add(handle);
-            return new NGWin32NamedPipeSocket(handle, closeCallback, requireStrictLength);
+            return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength);
         }
 
         int connectError = API.GetLastError();
         if (connectError == WinError.ERROR_PIPE_CONNECTED) {
             openHandles.remove(handle);
             connectedHandles.add(handle);
-            return new NGWin32NamedPipeSocket(handle, closeCallback, requireStrictLength);
+            return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength);
         } else if (connectError == WinError.ERROR_NO_DATA) {
             // Client has connected and disconnected between CreateNamedPipe() and ConnectNamedPipe()
             // connection is broken, but it is returned it avoid loop here.
             // Actual error will happen for NGSession when it will try to read/write from/to pipe
-            return new NGWin32NamedPipeSocket(handle, closeCallback, requireStrictLength);
+            return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength);
         } else if (connectError == WinError.ERROR_IO_PENDING) {
             if (!API.GetOverlappedResult(handle, olap.getPointer(), new IntByReference(), true)) {
                 openHandles.remove(handle);
@@ -157,7 +157,7 @@ public class NGWin32NamedPipeServerSocket extends ServerSocket {
             }
             openHandles.remove(handle);
             connectedHandles.add(handle);
-            return new NGWin32NamedPipeSocket(handle, closeCallback, requireStrictLength);
+            return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength);
         } else {
             throw new IOException("ConnectNamedPipe() failed with: " + connectError);
         }

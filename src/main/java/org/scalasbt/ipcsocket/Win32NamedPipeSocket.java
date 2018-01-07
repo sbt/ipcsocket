@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import com.sun.jna.Memory;
 import com.sun.jna.platform.win32.WinBase;
@@ -29,8 +29,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
-public class NGWin32NamedPipeSocket extends Socket {
-    private static final NGWin32NamedPipeLibrary API = NGWin32NamedPipeLibrary.INSTANCE;
+public class Win32NamedPipeSocket extends Socket {
+    private static final Win32NamedPipeLibrary API = Win32NamedPipeLibrary.INSTANCE;
     static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
     private final HANDLE handle;
     private final CloseCallback closeCallback;
@@ -50,7 +50,7 @@ public class NGWin32NamedPipeSocket extends Socket {
      * However, using requireStrictLength, NGWin32NamedPipeSocketInputStream can require that
      * len matches up exactly the number of bytes to read.
      */
-    public NGWin32NamedPipeSocket(
+    public Win32NamedPipeSocket(
             HANDLE handle,
             CloseCallback closeCallback,
             boolean requireStrictLength) throws IOException {
@@ -65,11 +65,11 @@ public class NGWin32NamedPipeSocket extends Socket {
         if (writerWaitable == null) {
             throw new IOException("CreateEvent() failed ");
         }
-        this.is = new NGWin32NamedPipeSocketInputStream(handle);
-        this.os = new NGWin32NamedPipeSocketOutputStream(handle);
+        this.is = new Win32NamedPipeSocketInputStream(handle);
+        this.os = new Win32NamedPipeSocketOutputStream(handle);
     }
 
-    public NGWin32NamedPipeSocket(
+    public Win32NamedPipeSocket(
             HANDLE handle,
             CloseCallback closeCallback) throws IOException {
         this(handle, closeCallback, DEFAULT_REQUIRE_STRICT_LENGTH);
@@ -98,10 +98,10 @@ public class NGWin32NamedPipeSocket extends Socket {
     public void shutdownOutput() throws IOException {
     }
 
-    private class NGWin32NamedPipeSocketInputStream extends InputStream {
+    private class Win32NamedPipeSocketInputStream extends InputStream {
         private final HANDLE handle;
 
-        NGWin32NamedPipeSocketInputStream(HANDLE handle) {
+        Win32NamedPipeSocketInputStream(HANDLE handle) {
             this.handle = handle;
         }
 
@@ -149,10 +149,10 @@ public class NGWin32NamedPipeSocket extends Socket {
         }
     }
 
-    private class NGWin32NamedPipeSocketOutputStream extends OutputStream {
+    private class Win32NamedPipeSocketOutputStream extends OutputStream {
         private final HANDLE handle;
 
-        NGWin32NamedPipeSocketOutputStream(HANDLE handle) {
+        Win32NamedPipeSocketOutputStream(HANDLE handle) {
             this.handle = handle;
         }
 

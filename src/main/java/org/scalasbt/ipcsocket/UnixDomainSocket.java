@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import com.sun.jna.LastErrorException;
 
@@ -34,7 +34,7 @@ import java.net.Socket;
  * {@link Socket#getInetAddress()}, {@link Socket#getLocalAddress()},
  * {@link Socket#getLocalSocketAddress()}, {@link Socket#getRemoteSocketAddress()}.
  */
-public class NGUnixDomainSocket extends Socket {
+public class UnixDomainSocket extends Socket {
   private final ReferenceCountedFileDescriptor fd;
   private final InputStream is;
   private final OutputStream os;
@@ -42,10 +42,10 @@ public class NGUnixDomainSocket extends Socket {
   /**
    * Creates a Unix domain socket backed by a native file descriptor.
    */
-  public NGUnixDomainSocket(int fd) {
+  public UnixDomainSocket(int fd) {
     this.fd = new ReferenceCountedFileDescriptor(fd);
-    this.is = new NGUnixDomainSocketInputStream();
-    this.os = new NGUnixDomainSocketOutputStream();
+    this.is = new UnixDomainSocketInputStream();
+    this.os = new UnixDomainSocketOutputStream();
   }
 
   public InputStream getInputStream() {
@@ -57,18 +57,18 @@ public class NGUnixDomainSocket extends Socket {
   }
 
   public void shutdownInput() throws IOException {
-    doShutdown(NGUnixDomainSocketLibrary.SHUT_RD);
+    doShutdown(UnixDomainSocketLibrary.SHUT_RD);
   }
 
   public void shutdownOutput() throws IOException {
-    doShutdown(NGUnixDomainSocketLibrary.SHUT_WR);
+    doShutdown(UnixDomainSocketLibrary.SHUT_WR);
   }
 
   private void doShutdown(int how) throws IOException {
     try {
       int socketFd = fd.acquire();
       if (socketFd != -1) {
-        NGUnixDomainSocketLibrary.shutdown(socketFd, how);
+        UnixDomainSocketLibrary.shutdown(socketFd, how);
       }
     } catch (LastErrorException e) {
       throw new IOException(e);
@@ -91,7 +91,7 @@ public class NGUnixDomainSocket extends Socket {
     }
   }
 
-  private class NGUnixDomainSocketInputStream extends InputStream {
+  private class UnixDomainSocketInputStream extends InputStream {
     public int read() throws IOException {
       ByteBuffer buf = ByteBuffer.allocate(1);
       int result;
@@ -122,7 +122,7 @@ public class NGUnixDomainSocket extends Socket {
         if (fdToRead == -1) {
           return -1;
         }
-        return NGUnixDomainSocketLibrary.read(fdToRead, buf, buf.remaining());
+        return UnixDomainSocketLibrary.read(fdToRead, buf, buf.remaining());
       } catch (LastErrorException e) {
         throw new IOException(e);
       } finally {
@@ -131,7 +131,7 @@ public class NGUnixDomainSocket extends Socket {
     }
   }
 
-  private class NGUnixDomainSocketOutputStream extends OutputStream {
+  private class UnixDomainSocketOutputStream extends OutputStream {
 
     public void write(int b) throws IOException {
       ByteBuffer buf = ByteBuffer.allocate(1);
@@ -153,7 +153,7 @@ public class NGUnixDomainSocket extends Socket {
         if (fdToWrite == -1) {
           return;
         }
-        int ret = NGUnixDomainSocketLibrary.write(fdToWrite, buf, buf.remaining());
+        int ret = UnixDomainSocketLibrary.write(fdToWrite, buf, buf.remaining());
         if (ret != buf.remaining()) {
           // This shouldn't happen with standard blocking Unix domain sockets.
           throw new IOException("Could not write " + buf.remaining() + " bytes as requested " +

@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -28,28 +28,28 @@ import com.sun.jna.ptr.IntByReference;
 
 /**
  * Implements a {@link ServerSocket} which binds to a local Unix domain socket
- * and returns instances of {@link NGUnixDomainSocket} from
+ * and returns instances of {@link UnixDomainSocket} from
  * {@link #accept()}.
  */
-public class NGUnixDomainServerSocket extends ServerSocket {
+public class UnixDomainServerSocket extends ServerSocket {
   private static final int DEFAULT_BACKLOG = 50;
 
   // We use an AtomicInteger to prevent a race in this situation which
   // could happen if fd were just an int:
   //
-  // Thread 1 -> NGUnixDomainServerSocket.accept()
+  // Thread 1 -> UnixDomainServerSocket.accept()
   //          -> lock this
   //          -> check isBound and isClosed
   //          -> unlock this
   //          -> descheduled while still in method
-  // Thread 2 -> NGUnixDomainServerSocket.close()
+  // Thread 2 -> UnixDomainServerSocket.close()
   //          -> lock this
   //          -> check isClosed
-  //          -> NGUnixDomainSocketLibrary.close(fd)
+  //          -> UnixDomainSocketLibrary.close(fd)
   //          -> now fd is invalid
   //          -> unlock this
   // Thread 1 -> re-scheduled while still in method
-  //          -> NGUnixDomainSocketLibrary.accept(fd, which is invalid and maybe re-used)
+  //          -> UnixDomainSocketLibrary.accept(fd, which is invalid and maybe re-used)
   //
   // By using an AtomicInteger, we'll set this to -1 after it's closed, which
   // will cause the accept() call above to cleanly fail instead of possibly
@@ -60,10 +60,10 @@ public class NGUnixDomainServerSocket extends ServerSocket {
   private boolean isBound;
   private boolean isClosed;
 
-  public static class NGUnixDomainServerSocketAddress extends SocketAddress {
+  public static class UnixDomainServerSocketAddress extends SocketAddress {
     private final String path;
 
-    public NGUnixDomainServerSocketAddress(String path) {
+    public UnixDomainServerSocketAddress(String path) {
       this.path = path;
     }
 
@@ -75,21 +75,21 @@ public class NGUnixDomainServerSocket extends ServerSocket {
   /**
    * Constructs an unbound Unix domain server socket.
    */
-  public NGUnixDomainServerSocket() throws IOException {
+  public UnixDomainServerSocket() throws IOException {
     this(DEFAULT_BACKLOG, null);
   }
 
   /**
    * Constructs an unbound Unix domain server socket with the specified listen backlog.
    */
-  public NGUnixDomainServerSocket(int backlog) throws IOException {
+  public UnixDomainServerSocket(int backlog) throws IOException {
     this(backlog, null);
   }
 
   /**
    * Constructs and binds a Unix domain server socket to the specified path.
    */
-  public NGUnixDomainServerSocket(String path) throws IOException {
+  public UnixDomainServerSocket(String path) throws IOException {
     this(DEFAULT_BACKLOG, path);
   }
 
@@ -97,16 +97,16 @@ public class NGUnixDomainServerSocket extends ServerSocket {
    * Constructs and binds a Unix domain server socket to the specified path
    * with the specified listen backlog.
    */
-  public NGUnixDomainServerSocket(int backlog, String path) throws IOException {
+  public UnixDomainServerSocket(int backlog, String path) throws IOException {
     try {
       fd = new AtomicInteger(
-          NGUnixDomainSocketLibrary.socket(
-              NGUnixDomainSocketLibrary.PF_LOCAL,
-              NGUnixDomainSocketLibrary.SOCK_STREAM,
+          UnixDomainSocketLibrary.socket(
+              UnixDomainSocketLibrary.PF_LOCAL,
+              UnixDomainSocketLibrary.SOCK_STREAM,
               0));
       this.backlog = backlog;
       if (path != null) {
-        bind(new NGUnixDomainServerSocketAddress(path));
+        bind(new UnixDomainServerSocketAddress(path));
       }
     } catch (LastErrorException e) {
       throw new IOException(e);
@@ -114,9 +114,9 @@ public class NGUnixDomainServerSocket extends ServerSocket {
   }
 
   public synchronized void bind(SocketAddress endpoint) throws IOException {
-    if (!(endpoint instanceof NGUnixDomainServerSocketAddress)) {
+    if (!(endpoint instanceof UnixDomainServerSocketAddress)) {
       throw new IllegalArgumentException(
-          "endpoint must be an instance of NGUnixDomainServerSocketAddress");
+          "endpoint must be an instance of UnixDomainServerSocketAddress");
     }
     if (isBound) {
       throw new IllegalStateException("Socket is already bound");
@@ -124,13 +124,13 @@ public class NGUnixDomainServerSocket extends ServerSocket {
     if (isClosed) {
       throw new IllegalStateException("Socket is already closed");
     }
-    NGUnixDomainServerSocketAddress unEndpoint = (NGUnixDomainServerSocketAddress) endpoint;
-    NGUnixDomainSocketLibrary.SockaddrUn address =
-        new NGUnixDomainSocketLibrary.SockaddrUn(unEndpoint.getPath());
+    UnixDomainServerSocketAddress unEndpoint = (UnixDomainServerSocketAddress) endpoint;
+    UnixDomainSocketLibrary.SockaddrUn address =
+        new UnixDomainSocketLibrary.SockaddrUn(unEndpoint.getPath());
     try {
       int socketFd = fd.get();
-      NGUnixDomainSocketLibrary.bind(socketFd, address, address.size());
-      NGUnixDomainSocketLibrary.listen(socketFd, backlog);
+      UnixDomainSocketLibrary.bind(socketFd, address, address.size());
+      UnixDomainSocketLibrary.listen(socketFd, backlog);
       isBound = true;
     } catch (LastErrorException e) {
       throw new IOException(e);
@@ -139,7 +139,7 @@ public class NGUnixDomainServerSocket extends ServerSocket {
 
   public Socket accept() throws IOException {
     // We explicitly do not make this method synchronized, since the
-    // call to NGUnixDomainSocketLibrary.accept() will block
+    // call to UnixDomainSocketLibrary.accept() will block
     // indefinitely, causing another thread's call to close() to deadlock.
     synchronized (this) {
       if (!isBound) {
@@ -150,12 +150,12 @@ public class NGUnixDomainServerSocket extends ServerSocket {
       }
     }
     try {
-      NGUnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new NGUnixDomainSocketLibrary.SockaddrUn();
+      UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
+          new UnixDomainSocketLibrary.SockaddrUn();
       IntByReference addressLen = new IntByReference();
       addressLen.setValue(sockaddrUn.size());
-      int clientFd = NGUnixDomainSocketLibrary.accept(fd.get(), sockaddrUn, addressLen);
-      return new NGUnixDomainSocket(clientFd);
+      int clientFd = UnixDomainSocketLibrary.accept(fd.get(), sockaddrUn, addressLen);
+      return new UnixDomainSocket(clientFd);
     } catch (LastErrorException e) {
       throw new IOException(e);
     }
@@ -167,7 +167,7 @@ public class NGUnixDomainServerSocket extends ServerSocket {
     }
     try {
       // Ensure any pending call to accept() fails.
-      NGUnixDomainSocketLibrary.close(fd.getAndSet(-1));
+      UnixDomainSocketLibrary.close(fd.getAndSet(-1));
       isClosed = true;
     } catch (LastErrorException e) {
       throw new IOException(e);

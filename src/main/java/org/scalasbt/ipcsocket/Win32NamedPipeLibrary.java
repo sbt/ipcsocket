@@ -15,7 +15,7 @@
  limitations under the License.
 
  */
-package com.martiansoftware.nailgun;
+package org.scalasbt.ipcsocket;
 
 import java.nio.ByteBuffer;
 
@@ -25,15 +25,15 @@ import com.sun.jna.ptr.IntByReference;
 
 import com.sun.jna.win32.W32APIOptions;
 
-public interface NGWin32NamedPipeLibrary extends WinNT {
+public interface Win32NamedPipeLibrary extends WinNT {
     int PIPE_ACCESS_DUPLEX = 3;
     int PIPE_UNLIMITED_INSTANCES = 255;
     int FILE_FLAG_FIRST_PIPE_INSTANCE = 524288;
 
-    NGWin32NamedPipeLibrary INSTANCE =
-            (NGWin32NamedPipeLibrary) Native.loadLibrary(
+    Win32NamedPipeLibrary INSTANCE =
+            (Win32NamedPipeLibrary) Native.loadLibrary(
                     "kernel32",
-                    NGWin32NamedPipeLibrary.class,
+                    Win32NamedPipeLibrary.class,
                     W32APIOptions.UNICODE_OPTIONS);
 
     HANDLE CreateNamedPipe(
