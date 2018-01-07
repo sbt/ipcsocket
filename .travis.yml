@@ -1,0 +1,32 @@
+sudo: false
+dist: trusty
+group: stable
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot
+
+language: scala
+
+jdk:
+  - oraclejdk8
+
+matrix:
+  fast_finish: true
+
+env:
+  matrix:
+    - SBT_CMD="testOnly org.scalasbt.ipcsocket.UnixDomainSocketTest"
+
+# Undo _JAVA_OPTIONS environment variable
+before_script:
+  - _JAVA_OPTIONS=
+
+script:
+  # It doesn't need that much memory because compile and run are forked
+  - sbt -J-XX:ReservedCodeCacheSize=128m -J-Xmx800M -J-Xms800M -J-server "$SBT_CMD"
+
+before_cache:
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -print -delete
+  - find $HOME/.sbt  -name "*.lock"               -print -delete
