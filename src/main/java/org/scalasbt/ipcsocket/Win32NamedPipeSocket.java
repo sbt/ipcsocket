@@ -20,6 +20,7 @@ package org.scalasbt.ipcsocket;
 import com.sun.jna.Memory;
 import com.sun.jna.platform.win32.WinBase;
 import com.sun.jna.platform.win32.WinError;
+import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.platform.win32.WinNT.HANDLE;
 import com.sun.jna.ptr.IntByReference;
 
@@ -31,6 +32,23 @@ import java.nio.ByteBuffer;
 
 public class Win32NamedPipeSocket extends Socket {
     private static final Win32NamedPipeLibrary API = Win32NamedPipeLibrary.INSTANCE;
+    private static HANDLE createFile(String pipeName) {
+        return API.CreateFile(
+            pipeName,
+            WinNT.GENERIC_READ | WinNT.GENERIC_WRITE,
+            0,     // no sharing
+            null,  // default security attributes
+            WinNT.OPEN_EXISTING,
+            0,     // default attributes
+            null); // no template file
+    }
+    private static CloseCallback emptyCallback() {
+        return new CloseCallback() {
+            public void onNamedPipeSocketClose(HANDLE handle) throws IOException {
+            }
+        };
+    }
+
     static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
     private final HANDLE handle;
     private final CloseCallback closeCallback;
@@ -73,6 +91,10 @@ public class Win32NamedPipeSocket extends Socket {
             HANDLE handle,
             CloseCallback closeCallback) throws IOException {
         this(handle, closeCallback, DEFAULT_REQUIRE_STRICT_LENGTH);
+    }
+
+    public Win32NamedPipeSocket(String pipeName) throws IOException {
+        this(createFile(pipeName), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH);
     }
 
     @Override
