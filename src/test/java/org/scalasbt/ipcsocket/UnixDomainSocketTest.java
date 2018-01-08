@@ -13,16 +13,18 @@ import static org.junit.Assert.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
+import java.util.Random;
 
 public class UnixDomainSocketTest {
   @Test
   public void testAssertEquals() throws IOException, InterruptedException {
+    Random rand = new Random();
     Path tempDir = Files.createTempDirectory("ipcsocket");
-    Path sock = tempDir.resolve("foo.sock");
+    Path sock = tempDir.resolve("foo" + rand.nextInt() + ".sock");
+    ServerSocket serverSocket = new UnixDomainServerSocket(sock.toString());
 
     CompletableFuture<Boolean> server = CompletableFuture.supplyAsync(() -> {
       try {
-        ServerSocket serverSocket = new UnixDomainServerSocket(sock.toString());
         EchoServer echo = new EchoServer(serverSocket);
         echo.run();
       } catch (IOException e) { }
@@ -39,6 +41,7 @@ public class UnixDomainSocketTest {
     String line = in.readLine();
     client.close();
     server.cancel(true);
+    serverSocket.close();
     assertEquals("echo did not return the content", line, "hello");
   }
 }

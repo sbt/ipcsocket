@@ -13,14 +13,16 @@ import static org.junit.Assert.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
+import java.util.Random;
 
 public class Win32NamedPipeSocketTest {
   @Test
   public void testAssertEquals() throws IOException, InterruptedException {
-    String pipeName = "\\\\.\\pipe\\ipcsockettest";
+    Random rand = new Random();
+    String pipeName = "\\\\.\\pipe\\ipcsockettest" + rand.nextInt();
+    ServerSocket serverSocket = new Win32NamedPipeServerSocket(pipeName);
     CompletableFuture<Boolean> server = CompletableFuture.supplyAsync(() -> {
       try {
-        ServerSocket serverSocket = new Win32NamedPipeServerSocket(pipeName);
         EchoServer echo = new EchoServer(serverSocket);
         echo.run();
       } catch (IOException e) { }
@@ -38,6 +40,7 @@ public class Win32NamedPipeSocketTest {
     System.out.println("windows client: " + line);
     client.close();
     server.cancel(true);
+    serverSocket.close();
     assertEquals("echo did not return the content", line, "hello");
   }
 }
