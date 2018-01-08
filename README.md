@@ -9,6 +9,12 @@ On Windows, IPC is implemented using Named Pipe. The path must refer to an entry
 
 See unit tests for the details.
 
+### Module ID
+
+```scala
+libraryDependencies += "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.0.0"
+```
+
 ### Why not just use TCP/IP?
 
 TCP/IP is open to everyone on the network, if someone can get hold of your machine, the person could connect to it.
