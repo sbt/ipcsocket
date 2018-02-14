@@ -21,6 +21,7 @@ import com.sun.jna.platform.win32.WinBase;
 import com.sun.jna.platform.win32.WinError;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.platform.win32.WinNT.HANDLE;
+import com.sun.jna.platform.win32.WinBase.SECURITY_ATTRIBUTES;
 import com.sun.jna.ptr.IntByReference;
 
 import java.io.IOException;
@@ -89,6 +90,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
             this.path = path;
         }
         String lockPath = this.path + "_lock";
+        SECURITY_ATTRIBUTES sa = Win32SecurityLibrary.createSecurityWithLogonDacl(WinNT.FILE_GENERIC_READ);
         lockHandle = API.CreateNamedPipe(
                 lockPath,
                 Win32NamedPipeLibrary.FILE_FLAG_FIRST_PIPE_INSTANCE | Win32NamedPipeLibrary.PIPE_ACCESS_DUPLEX,
@@ -97,7 +99,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
                 BUFFER_SIZE,
                 BUFFER_SIZE,
                 0,
-                null);
+                sa);
         if (lockHandle == Win32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
             throw new IOException(String.format("Could not create lock for %s, error %d", lockPath, API.GetLastError()));
         } else {
@@ -113,6 +115,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     }
 
     public Socket accept() throws IOException {
+        SECURITY_ATTRIBUTES sa = Win32SecurityLibrary.createSecurityWithLogonDacl(WinNT.FILE_ALL_ACCESS);
         HANDLE handle = API.CreateNamedPipe(
                 path,
                 Win32NamedPipeLibrary.PIPE_ACCESS_DUPLEX | WinNT.FILE_FLAG_OVERLAPPED,
@@ -121,7 +124,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
                 BUFFER_SIZE,
                 BUFFER_SIZE,
                 0,
-                null);
+                sa);
         if (handle == Win32NamedPipeLibrary.INVALID_HANDLE_VALUE) {
             throw new IOException(String.format("Could not create named pipe, error %d", API.GetLastError()));
         }
