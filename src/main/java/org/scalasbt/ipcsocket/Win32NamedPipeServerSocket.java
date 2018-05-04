@@ -196,4 +196,8 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
         API.DisconnectNamedPipe(handle);
         API.CloseHandle(handle);
     }
+
+  public String toString() {
+    return "ServerSocket[type=Win32NamedPipe,path=" + path + "]";
+  }
 }

@@ -40,6 +40,7 @@ public class UnixDomainSocket extends Socket {
   private final ReferenceCountedFileDescriptor fd;
   private final InputStream is;
   private final OutputStream os;
+  private final String path;
 
   /**
    * Creates a Unix domain socket backed by a file path.
@@ -58,6 +59,7 @@ public class UnixDomainSocket extends Socket {
       this.fd = new ReferenceCountedFileDescriptor(socketFd);
       this.is = new UnixDomainSocketInputStream();
       this.os = new UnixDomainSocketOutputStream();
+      this.path = path;
     } catch (LastErrorException e) {
       throw new IOException(e);
     }
@@ -70,6 +72,7 @@ public class UnixDomainSocket extends Socket {
     this.fd = new ReferenceCountedFileDescriptor(fd);
     this.is = new UnixDomainSocketInputStream();
     this.os = new UnixDomainSocketOutputStream();
+    this.path = null;
   }
 
   public InputStream getInputStream() {
@@ -113,6 +116,15 @@ public class UnixDomainSocket extends Socket {
     } catch (LastErrorException e) {
       throw new IOException(e);
     }
+  }
+
+  public String toString() {
+    if(path != null)
+      return "Socket[type=UnixDomain,path=" + path + "]";
+    else if(fd != null)
+      return "Socket[type=UnixDomain,fd=" + fd + "]";
+    else
+      return "Socket[type=UnixDomain,unknown]";
   }
 
   private class UnixDomainSocketInputStream extends InputStream {

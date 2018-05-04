@@ -57,6 +57,7 @@ public class Win32NamedPipeSocket extends Socket {
     private final OutputStream os;
     private final HANDLE readerWaitable;
     private final HANDLE writerWaitable;
+    private String pipeName;
 
     interface CloseCallback {
         void onNamedPipeSocketClose(HANDLE handle) throws IOException;
@@ -91,10 +92,12 @@ public class Win32NamedPipeSocket extends Socket {
             HANDLE handle,
             CloseCallback closeCallback) throws IOException {
         this(handle, closeCallback, DEFAULT_REQUIRE_STRICT_LENGTH);
+        this.pipeName = null;
     }
 
     public Win32NamedPipeSocket(String pipeName) throws IOException {
         this(createFile(pipeName), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH);
+        this.pipeName = pipeName;
     }
 
     @Override
@@ -119,6 +122,13 @@ public class Win32NamedPipeSocket extends Socket {
     @Override
     public void shutdownOutput() throws IOException {
     }
+
+  public String toString() {
+    if(pipeName != null)
+      return "Socket[type=Win32NamedPipe,name=" + pipeName + ",handle=" + handle + "]";
+    else
+      return "Socket[type=Win32NamedPipe,handle=" + handle + "]";
+  }
 
     private class Win32NamedPipeSocketInputStream extends InputStream {
         private final HANDLE handle;

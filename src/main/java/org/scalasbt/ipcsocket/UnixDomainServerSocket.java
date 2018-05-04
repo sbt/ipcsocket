@@ -59,6 +59,7 @@ public class UnixDomainServerSocket extends ServerSocket {
   private final int backlog;
   private boolean isBound;
   private boolean isClosed;
+  private UnixDomainServerSocketAddress serverSocketAddress;
 
   public static class UnixDomainServerSocketAddress extends SocketAddress {
     private final String path;
@@ -106,7 +107,8 @@ public class UnixDomainServerSocket extends ServerSocket {
               0));
       this.backlog = backlog;
       if (path != null) {
-        bind(new UnixDomainServerSocketAddress(path));
+        serverSocketAddress = new UnixDomainServerSocketAddress(path);
+        bind(serverSocketAddress);
       }
     } catch (LastErrorException e) {
       throw new IOException(e);
@@ -124,9 +126,9 @@ public class UnixDomainServerSocket extends ServerSocket {
     if (isClosed) {
       throw new IllegalStateException("Socket is already closed");
     }
-    UnixDomainServerSocketAddress unEndpoint = (UnixDomainServerSocketAddress) endpoint;
+    serverSocketAddress = (UnixDomainServerSocketAddress) endpoint;
     UnixDomainSocketLibrary.SockaddrUn address =
-        new UnixDomainSocketLibrary.SockaddrUn(unEndpoint.getPath());
+        new UnixDomainSocketLibrary.SockaddrUn(serverSocketAddress.getPath());
     try {
       int socketFd = fd.get();
       UnixDomainSocketLibrary.bind(socketFd, address, address.size());
@@ -171,6 +173,15 @@ public class UnixDomainServerSocket extends ServerSocket {
       isClosed = true;
     } catch (LastErrorException e) {
       throw new IOException(e);
+    }
+  }
+
+  public String toString() {
+    if (!isBound)
+      return "ServerSocket[type=UnixDomain,unbound]";
+    else {
+      String path = serverSocketAddress.getPath();
+      return "ServerSocket[type=UnixDomain,path=" + path + "]";
     }
   }
 }

@@ -77,4 +77,8 @@ public class ReferenceCountedFileDescriptor {
       throw new IOException(e);
     }
   }
+
+  public String toString() {
+    return Integer.toString(fd);
+  }
 }
