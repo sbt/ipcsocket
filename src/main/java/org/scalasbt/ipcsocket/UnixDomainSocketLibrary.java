@@ -60,7 +60,7 @@ public class UnixDomainSocketLibrary {
       public byte sunLen;
       public byte sunFamily;
 
-      protected List getFieldOrder() {
+      protected List<String> getFieldOrder() {
         return Arrays.asList(new String[] { "sunLen", "sunFamily" });
       }
     }
@@ -114,7 +114,7 @@ public class UnixDomainSocketLibrary {
       allocateMemory();
     }
 
-    protected List getFieldOrder() {
+    protected List<String> getFieldOrder() {
       return Arrays.asList(new String[] { "sunFamily", "sunPath" });
     }
   }
