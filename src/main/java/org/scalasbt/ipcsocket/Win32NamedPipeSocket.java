@@ -42,12 +42,6 @@ public class Win32NamedPipeSocket extends Socket {
             0,     // default attributes
             null); // no template file
     }
-    private static CloseCallback emptyCallback() {
-        return new CloseCallback() {
-            public void onNamedPipeSocketClose(HANDLE handle) throws IOException {
-            }
-        };
-    }
 
     static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
     private final HANDLE handle;
@@ -58,10 +52,6 @@ public class Win32NamedPipeSocket extends Socket {
     private final HANDLE readerWaitable;
     private final HANDLE writerWaitable;
     private String pipeName;
-
-    interface CloseCallback {
-        void onNamedPipeSocketClose(HANDLE handle) throws IOException;
-    }
 
     /**
      * The doc for InputStream#read(byte[] b, int off, int len) states that
@@ -96,7 +86,7 @@ public class Win32NamedPipeSocket extends Socket {
     }
 
     public Win32NamedPipeSocket(String pipeName) throws IOException {
-        this(createFile(pipeName), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH);
+        this(createFile(pipeName), new CloseCallback(), DEFAULT_REQUIRE_STRICT_LENGTH);
         this.pipeName = pipeName;
     }
 

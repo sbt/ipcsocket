@@ -38,7 +38,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     private static final int BUFFER_SIZE = 65535;
     private final LinkedBlockingQueue<HANDLE> openHandles;
     private final LinkedBlockingQueue<HANDLE> connectedHandles;
-    private final Win32NamedPipeSocket.CloseCallback closeCallback;
+    private final CloseCallback closeCallback;
     private final String path;
     private final int maxInstances;
     private final HANDLE lockHandle;
@@ -72,16 +72,9 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
             int maxInstances,
             String path,
             boolean requireStrictLength) throws IOException {
-        this.openHandles = new LinkedBlockingQueue<>();
-        this.connectedHandles = new LinkedBlockingQueue<>();
-        this.closeCallback = handle -> {
-            if (connectedHandles.remove(handle)) {
-                closeConnectedPipe(handle, false);
-            }
-            if (openHandles.remove(handle)) {
-                closeOpenPipe(handle);
-            }
-        };
+        this.openHandles = new LinkedBlockingQueue<HANDLE>();
+        this.connectedHandles = new LinkedBlockingQueue<HANDLE>();
+        this.closeCallback = new CloseCallback(this, connectedHandles, openHandles);
         this.maxInstances = maxInstances;
         this.requireStrictLength = requireStrictLength;
         if (!path.startsWith(WIN32_PIPE_PREFIX)) {
@@ -168,13 +161,13 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
 
     public void close() throws IOException {
         try {
-            List<HANDLE> handlesToClose = new ArrayList<>();
+            List<HANDLE> handlesToClose = new ArrayList<HANDLE>();
             openHandles.drainTo(handlesToClose);
             for (HANDLE handle : handlesToClose) {
                 closeOpenPipe(handle);
             }
 
-            List<HANDLE> handlesToDisconnect = new ArrayList<>();
+            List<HANDLE> handlesToDisconnect = new ArrayList<HANDLE>();
             connectedHandles.drainTo(handlesToDisconnect);
             for (HANDLE handle : handlesToDisconnect) {
                 closeConnectedPipe(handle, true);
@@ -184,12 +177,12 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
         }
     }
 
-    private void closeOpenPipe(HANDLE handle) throws IOException {
+    public void closeOpenPipe(HANDLE handle) throws IOException {
         API.CancelIoEx(handle, null);
         API.CloseHandle(handle);
     }
 
-    private void closeConnectedPipe(HANDLE handle, boolean shutdown) throws IOException {
+    public void closeConnectedPipe(HANDLE handle, boolean shutdown) throws IOException {
         if (!shutdown) {
             API.WaitForSingleObject(handle, 10000);
         }
