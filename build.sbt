@@ -5,7 +5,7 @@ lazy val junitInterface = "com.novocode" % "junit-interface" % "0.11"
 lazy val root = (project in file("."))
   .settings(
     inThisBuild(List(
-      version := "1.0.0-SNAPSHOT",
+      version := "1.0.1-SNAPSHOT",
       organization := "org.scala-sbt.ipcsocket",
       organizationName := "sbt",
       organizationHomepage := Some(url("http://scala-sbt.org/")),

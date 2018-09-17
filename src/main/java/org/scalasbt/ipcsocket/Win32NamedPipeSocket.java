@@ -39,7 +39,7 @@ public class Win32NamedPipeSocket extends Socket {
             0,     // no sharing
             null,  // default security attributes
             WinNT.OPEN_EXISTING,
-            0,     // default attributes
+            WinNT.FILE_FLAG_OVERLAPPED,     // need overlapped for true asynchronous read/write access
             null); // no template file
     }
     private static CloseCallback emptyCallback() {
