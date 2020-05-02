@@ -1,28 +1,21 @@
 /*
 
- Copyright 2004-2017, Martian Software, Inc.
+Copyright 2004-2017, Martian Software, Inc.
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
- http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
- */
+*/
 package org.scalasbt.ipcsocket;
-
-import com.sun.jna.Memory;
-import com.sun.jna.platform.win32.WinBase;
-import com.sun.jna.platform.win32.WinError;
-import com.sun.jna.platform.win32.WinNT;
-import com.sun.jna.platform.win32.WinNT.HANDLE;
-import com.sun.jna.ptr.IntByReference;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,181 +24,136 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 
 public class Win32NamedPipeSocket extends Socket {
-    private static final Win32NamedPipeLibrary API = Win32NamedPipeLibrary.INSTANCE;
-    private static HANDLE createFile(String pipeName) {
-        return API.CreateFile(
-            pipeName,
-            WinNT.GENERIC_READ | WinNT.GENERIC_WRITE,
-            0,     // no sharing
-            null,  // default security attributes
-            WinNT.OPEN_EXISTING,
-            WinNT.FILE_FLAG_OVERLAPPED,     // need overlapped for true asynchronous read/write access
-            null); // no template file
-    }
-    private static CloseCallback emptyCallback() {
-        return new CloseCallback() {
-            public void onNamedPipeSocketClose(HANDLE handle) throws IOException {
-            }
-        };
-    }
+  private static Handle createFile(String pipeName, boolean useJNI) throws IOException {
+    final Win32NamedPipeLibraryProvider provider = Win32NamedPipeLibraryProvider.get(useJNI);
+    return provider.CreateFile(pipeName);
+  }
 
-    static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
-    private final HANDLE handle;
-    private final CloseCallback closeCallback;
-    private final boolean requireStrictLength;
-    private final InputStream is;
-    private final OutputStream os;
-    private final HANDLE readerWaitable;
-    private final HANDLE writerWaitable;
+  private static CloseCallback emptyCallback() {
+    return new CloseCallback() {
+      public void onNamedPipeSocketClose(Handle handle) throws IOException {}
+    };
+  }
 
-    interface CloseCallback {
-        void onNamedPipeSocketClose(HANDLE handle) throws IOException;
-    }
+  static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
+  private final Handle handle;
+  private final CloseCallback closeCallback;
+  private final boolean requireStrictLength;
+  private final InputStream is;
+  private final OutputStream os;
+  private final Handle readerWaitable;
+  private final Handle writerWaitable;
+  private final Win32NamedPipeLibraryProvider provider;
 
-    /**
-     * The doc for InputStream#read(byte[] b, int off, int len) states that
-     * "An attempt is made to read as many as len bytes, but a smaller number may be read."
-     * However, using requireStrictLength, NGWin32NamedPipeSocketInputStream can require that
-     * len matches up exactly the number of bytes to read.
-     */
-    public Win32NamedPipeSocket(
-            HANDLE handle,
-            CloseCallback closeCallback,
-            boolean requireStrictLength) throws IOException {
-        this.handle = handle;
-        this.closeCallback = closeCallback;
-        this.requireStrictLength = requireStrictLength;
-        this.readerWaitable = API.CreateEvent(null, true, false, null);
-        if (readerWaitable == null) {
-            throw new IOException("CreateEvent() failed ");
-        }
-        writerWaitable = API.CreateEvent(null, true, false, null);
-        if (writerWaitable == null) {
-            throw new IOException("CreateEvent() failed ");
-        }
-        this.is = new Win32NamedPipeSocketInputStream(handle);
-        this.os = new Win32NamedPipeSocketOutputStream(handle);
-    }
+  interface CloseCallback {
+    void onNamedPipeSocketClose(Handle handle) throws IOException;
+  }
 
-    public Win32NamedPipeSocket(
-            HANDLE handle,
-            CloseCallback closeCallback) throws IOException {
-        this(handle, closeCallback, DEFAULT_REQUIRE_STRICT_LENGTH);
-    }
+  /**
+   * The doc for InputStream#read(byte[] b, int off, int len) states that "An attempt is made to
+   * read as many as len bytes, but a smaller number may be read." However, using
+   * requireStrictLength, NGWin32NamedPipeSocketInputStream can require that len matches up exactly
+   * the number of bytes to read.
+   */
+  public Win32NamedPipeSocket(
+      Handle handle, CloseCallback closeCallback, boolean requireStrictLength) throws IOException {
+    this(handle, closeCallback, requireStrictLength, false);
+  }
+  /**
+   * The doc for InputStream#read(byte[] b, int off, int len) states that "An attempt is made to
+   * read as many as len bytes, but a smaller number may be read." However, using
+   * requireStrictLength, NGWin32NamedPipeSocketInputStream can require that len matches up exactly
+   * the number of bytes to read.
+   */
+  public Win32NamedPipeSocket(
+      Handle handle, CloseCallback closeCallback, boolean requireStrictLength, boolean useJNI)
+      throws IOException {
+    this.provider =
+        useJNI
+            ? JNIWin32NamedPipeLibraryProvider.instance()
+            : JNAWin32NamedPipeLibraryProvider.instance();
+    this.handle = handle;
+    this.closeCallback = closeCallback;
+    this.requireStrictLength = requireStrictLength;
+    this.readerWaitable = provider.CreateEvent(true, false, null);
+    writerWaitable = provider.CreateEvent(true, false, null);
+    this.is = new Win32NamedPipeSocketInputStream(handle);
+    this.os = new Win32NamedPipeSocketOutputStream(handle);
+  }
 
-    public Win32NamedPipeSocket(String pipeName) throws IOException {
-        this(createFile(pipeName), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH);
+  Win32NamedPipeSocket(Handle handle, CloseCallback closeCallback) throws IOException {
+    this(handle, closeCallback, DEFAULT_REQUIRE_STRICT_LENGTH, false);
+  }
+
+  public Win32NamedPipeSocket(String pipeName) throws IOException {
+    this(createFile(pipeName, false), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH, false);
+  }
+
+  public Win32NamedPipeSocket(String pipeName, boolean useJNI) throws IOException {
+    this(createFile(pipeName, useJNI), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH, useJNI);
+  }
+
+  @Override
+  public InputStream getInputStream() {
+    return is;
+  }
+
+  @Override
+  public OutputStream getOutputStream() {
+    return os;
+  }
+
+  @Override
+  public void close() throws IOException {
+    closeCallback.onNamedPipeSocketClose(handle);
+  }
+
+  @Override
+  public void shutdownInput() throws IOException {}
+
+  @Override
+  public void shutdownOutput() throws IOException {}
+
+  private class Win32NamedPipeSocketInputStream extends InputStream {
+    private final Handle handle;
+
+    Win32NamedPipeSocketInputStream(Handle handle) {
+      this.handle = handle;
     }
 
     @Override
-    public InputStream getInputStream() {
-        return is;
+    public int read() throws IOException {
+      int result;
+      byte[] b = new byte[1];
+      if (read(b) == 0) {
+        result = -1;
+      } else {
+        result = 0xFF & b[0];
+      }
+      return result;
     }
 
     @Override
-    public OutputStream getOutputStream() {
-        return os;
+    public int read(byte[] b, int off, int len) throws IOException {
+      return provider.read(readerWaitable, handle, b, off, len, requireStrictLength);
+    }
+  }
+
+  private class Win32NamedPipeSocketOutputStream extends OutputStream {
+    private final Handle handle;
+
+    Win32NamedPipeSocketOutputStream(Handle handle) {
+      this.handle = handle;
     }
 
     @Override
-    public void close() throws IOException {
-        closeCallback.onNamedPipeSocketClose(handle);
+    public void write(int b) throws IOException {
+      write(new byte[] {(byte) (0xFF & b)});
     }
 
     @Override
-    public void shutdownInput() throws IOException {
+    public void write(byte[] b, int off, int len) throws IOException {
+      provider.write(writerWaitable, handle, b, off, len);
     }
-
-    @Override
-    public void shutdownOutput() throws IOException {
-    }
-
-    private class Win32NamedPipeSocketInputStream extends InputStream {
-        private final HANDLE handle;
-
-        Win32NamedPipeSocketInputStream(HANDLE handle) {
-            this.handle = handle;
-        }
-
-        @Override
-        public int read() throws IOException {
-            int result;
-            byte[] b = new byte[1];
-            if (read(b) == 0) {
-                result = -1;
-            } else {
-                result = 0xFF & b[0];
-            }
-            return result;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            Memory readBuffer = new Memory(len);
-
-            WinBase.OVERLAPPED olap = new WinBase.OVERLAPPED();
-            olap.hEvent = readerWaitable;
-            olap.write();
-
-            boolean immediate = API.ReadFile(handle, readBuffer, len, null, olap.getPointer());
-            if (!immediate) {
-                int lastError = API.GetLastError();
-                if (lastError != WinError.ERROR_IO_PENDING) {
-                    throw new IOException("ReadFile() failed: " + lastError);
-                }
-            }
-
-            IntByReference r = new IntByReference();
-            if (!API.GetOverlappedResult(handle, olap.getPointer(), r, true)) {
-                int lastError = API.GetLastError();
-                throw new IOException("GetOverlappedResult() failed for read operation: " + lastError);
-            }
-            int actualLen = r.getValue();
-            if (requireStrictLength && (actualLen != len)) {
-                throw new IOException("ReadFile() read less bytes than requested: expected " +
-                    len + " bytes, but read " + actualLen + " bytes");
-            }
-            byte[] byteArray = readBuffer.getByteArray(0, actualLen);
-            System.arraycopy(byteArray, 0, b, off, actualLen);
-            return actualLen;
-        }
-    }
-
-    private class Win32NamedPipeSocketOutputStream extends OutputStream {
-        private final HANDLE handle;
-
-        Win32NamedPipeSocketOutputStream(HANDLE handle) {
-            this.handle = handle;
-        }
-
-        @Override
-        public void write(int b) throws IOException {
-            write(new byte[]{(byte) (0xFF & b)});
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) throws IOException {
-            ByteBuffer data = ByteBuffer.wrap(b, off, len);
-
-            WinBase.OVERLAPPED olap = new WinBase.OVERLAPPED();
-            olap.hEvent = writerWaitable;
-            olap.write();
-
-            boolean immediate = API.WriteFile(handle, data, len, null, olap.getPointer());
-            if (!immediate) {
-                int lastError = API.GetLastError();
-                if (lastError != WinError.ERROR_IO_PENDING) {
-                    throw new IOException("WriteFile() failed: " + lastError);
-                }
-            }
-            IntByReference written = new IntByReference();
-            if (!API.GetOverlappedResult(handle, olap.getPointer(), written, true)) {
-                int lastError = API.GetLastError();
-                throw new IOException("GetOverlappedResult() failed for write operation: " + lastError);
-            }
-            if (written.getValue() != len) {
-                throw new IOException("WriteFile() wrote less bytes than requested");
-            }
-        }
-    }
+  }
 }

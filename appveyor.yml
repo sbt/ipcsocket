@@ -1,0 +1,92 @@
+build: off
+
+image:
+  - Visual Studio 2019
+  - Ubuntu
+  - macOS
+
+init:
+  - git config --global core.autocrlf input
+
+
+for:
+-
+  matrix:
+    only:
+      - image: macOS
+  artifacts:
+  - path: src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
+    name: libsbtipcsocket.dylib
+
+  install:
+  - curl -sL https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.tgz > ~/sbt-bin.tgz
+  - mkdir ~/sbt
+  - tar -xf ~/sbt-bin.tgz --directory ~/sbt
+  - export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/"
+  - export PATH="$PATH/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/bin"
+  - export PATH="/Users/appveyor/sbt/sbt/bin:$PATH"
+  - export SBT_OPTS="-XX:MaxPermSize=1g -Xmx1g -Dfile.encoding=UTF8"
+
+  cache:
+    - /Users/appveyor/.jabba/jdk
+  test_script:
+    - sbt "test"
+
+-
+  matrix:
+    only:
+      - image: Ubuntu
+  artifacts:
+  - path: src/main/resources/linux/x86_64/libsbtipcsocket.so
+    name: libsbtipcsocket.so
+  - path: src/main/resources/win32/x86_64/sbtipcsocket.dll
+    name: sbtipcsocket.dll
+
+  install:
+  - sudo apt-get -y install mingw-w64
+  - curl -sL https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.tgz > ~/sbt-bin.tgz
+  - mkdir ~/sbt
+  - tar -xf ~/sbt-bin.tgz --directory ~/sbt
+  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.0/install.sh | bash && . ~/.jabba/jabba.sh
+  - jabba install adopt@1.8.0-222
+  - jabba use adopt@1.8.0-222
+  - export JAVA_HOME="~/.jabba/jdk/adopt@1.8.0-222"
+  - export PATH="$PATH:~/.jabba/jdk/adopt@1.8.0-222/bin"
+  - export PATH="~/sbt/sbt/bin:$PATH"
+  - export SBT_OPTS="-XX:MaxPermSize=1g -Xmx1g -Dfile.encoding=UTF8"
+
+  cache:
+    - /home/appveyor/.jabba/jdk
+    - /home/appveyor/.sbt
+  test_script:
+    - sbt "test"
+
+
+-
+  matrix:
+    only:
+      - image: Visual Studio 2019
+  install:
+    - SET JAVA_HOME='C:\Program Files (x86)\Java\jdk1.8.0'
+    - SET PATH='C:\Program Files (x86)\Java\jdk1.8.0\bin;%PATH%'
+
+    - ps: |
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        if (!(Test-Path -Path "C:\sbt" )) {
+          (new-object System.Net.WebClient).DownloadFile(
+            'https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.zip',
+            'C:\sbt-bin.zip'
+          )
+          [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
+        }
+    - SET PATH=C:\sbt\sbt\bin;%PATH%
+    - SET SBT_OPTS=-XX:MaxPermSize=1g -Xmx1g -Dfile.encoding=UTF8
+    - SET APPVEYOR_SAVE_CACHE_ON_ERROR=true
+  cache:
+    - '%USERPROFILE%\.ivy2\cache'
+    - '%LOCALAPPDATA%\Coursier\Cache\v1'
+    - '%USERPROFILE%\.sbt'
+    - 'C:\sbt'
+
+test_script:
+  - sbt "test"
