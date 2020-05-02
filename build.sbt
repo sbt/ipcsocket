@@ -1,5 +1,6 @@
-lazy val jna = "net.java.dev.jna" % "jna" % "5.5.0"
-lazy val jnaPlatform = "net.java.dev.jna" % "jna-platform" % "5.5.0"
+val jnaVersion = "5.5.0"
+lazy val jna = "net.java.dev.jna" % "jna" % jnaVersion
+lazy val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
 lazy val junitInterface = "com.novocode" % "junit-interface" % "0.11"
 
 lazy val root = (project in file("."))
