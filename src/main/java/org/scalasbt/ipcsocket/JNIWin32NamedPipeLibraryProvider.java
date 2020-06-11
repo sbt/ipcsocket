@@ -41,7 +41,8 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       int nOutBufferSize,
       int nInBufferSize,
       int nDefaultTimeOut,
-      int lpSecurityAttributes)
+      int lpSecurityAttributes,
+      int securityLevel)
       throws IOException {
     return new JNIHandle(
         CreateNamedPipeNative(
@@ -52,7 +53,8 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
             nOutBufferSize,
             nInBufferSize,
             nDefaultTimeOut,
-            lpSecurityAttributes));
+            lpSecurityAttributes,
+            securityLevel));
   }
 
   native long CreateNamedPipeNative(
@@ -63,7 +65,8 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       int nOutBufferSize,
       int nInBufferSize,
       int nDefaultTimeOut,
-      int lpSecurityAttributes)
+      int lpSecurityAttributes,
+      int securityLevel)
       throws IOException;
 
   @Override

@@ -11,7 +11,8 @@ interface Win32NamedPipeLibraryProvider {
       int nOutBufferSize,
       int nInBufferSize,
       int nDefaultTimeOut,
-      int lpSecurityAttributes)
+      int lpSecurityAttributes,
+      int logonDacl)
       throws IOException;
 
   Handle CreateFile(String pipeName) throws IOException;

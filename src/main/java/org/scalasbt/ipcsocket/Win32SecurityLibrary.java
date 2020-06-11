@@ -24,6 +24,11 @@ public class Win32SecurityLibrary {
   private static final long SE_GROUP_LOGON_ID = 0xC0000000L;
 
   public static SECURITY_ATTRIBUTES createSecurityWithLogonDacl(int accessMask) {
+    return createSecurityWithDacl(accessMask, Win32SecurityLevel.LOGON_DACL);
+  }
+
+  public static SECURITY_ATTRIBUTES createSecurityWithDacl(int accessMask, int securityLevel) {
+    if (securityLevel == Win32SecurityLevel.NO_SECURITY) return null;
     SECURITY_DESCRIPTOR sd = new SECURITY_DESCRIPTOR(64 * 1024);
     Advapi32.INSTANCE.InitializeSecurityDescriptor(sd, WinNT.SECURITY_DESCRIPTOR_REVISION);
     Native.getLastError();
@@ -31,7 +36,8 @@ public class Win32SecurityLibrary {
     ACL pAcl;
     int cbAcl = 0;
     PSIDByReference psid = new PSIDByReference();
-    getOwnerSID(psid);
+    if (securityLevel == Win32SecurityLevel.LOGON_DACL) getLogonSID(psid);
+    else getOwnerSID(psid);
     int sidLength = Advapi32.INSTANCE.GetLengthSid(psid.getValue());
     cbAcl = Native.getNativeSize(ACL.class, null);
     cbAcl += Native.getNativeSize(ACCESS_ALLOWED_ACE.class, null);

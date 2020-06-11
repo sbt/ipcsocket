@@ -33,8 +33,8 @@
              GetLastError());                                                  \
   } while (0);
 
-static int createSecurityWithLogonDacl(PSECURITY_ATTRIBUTES pSA,
-                                       DWORD accessMask);
+static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
+                                  BOOL logon);
 
 BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
 
@@ -42,11 +42,16 @@ jlong JNICALL
 Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNative(
     JNIEnv *env, UNUSED jobject object, jstring lpName, jint dwOpenMode,
     jint dwPipeMode, jint nMaxInstances, jint nOutBufferSize,
-    jint nIntBufferSize, jint nDefaultTimeout, jint lpSecurityAttributes) {
-  PSECURITY_ATTRIBUTES pSA = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                                       sizeof(SECURITY_ATTRIBUTES));
-  int result = createSecurityWithLogonDacl(pSA, lpSecurityAttributes);
-  if (!result) {
+    jint nIntBufferSize, jint nDefaultTimeout, jint lpSecurityAttributes,
+    jint security) {
+  PSECURITY_ATTRIBUTES pSA = security
+                                 ? HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                             sizeof(SECURITY_ATTRIBUTES))
+                                 : NULL;
+  int err = security ? createSecurityWithDacl(pSA, lpSecurityAttributes,
+                                              security == 1)
+                     : 0;
+  if (!err || !security) {
     LPCWSTR name = (LPCWSTR)(*env)->GetStringChars(env, lpName, 0);
 
     jlong handle = (jlong)(
@@ -58,14 +63,20 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNati
       THROW_IO("Couldn't create named pipe for %s (%s)",
                (*env)->GetStringUTFChars(env, lpName, 0), buf);
     }
+    if (pSA)
+      HeapFree(GetProcessHeap(), 0, pSA);
     return handle;
   } else {
     char buf[512];
     FILL_ERROR("Couldn't create security acl -- %s (error code %ld)", buf);
     jclass exClass = (*env)->FindClass(env, "java/io/IOException");
     if (exClass != NULL) {
+      if (pSA)
+        HeapFree(GetProcessHeap(), 0, pSA);
       return (*env)->ThrowNew(env, exClass, buf);
     }
+    if (pSA)
+      HeapFree(GetProcessHeap(), 0, pSA);
     return -1;
   }
 }
@@ -329,10 +340,9 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_getErrorMessage(
   return (*env)->NewString(env, buf, len - 1);
 }
 
-static int createSecurityWithLogonDacl(PSECURITY_ATTRIBUTES pSA,
-                                       DWORD accessMask) {
+static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
+                                  BOOL logon) {
   int result = 0;
-  // Direct port of SecurityLibrary.createSecurityWithLogonDacl
   PSECURITY_DESCRIPTOR pSD = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                        SECURITY_DESCRIPTOR_MIN_LENGTH);
   if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
@@ -353,19 +363,31 @@ static int createSecurityWithLogonDacl(PSECURITY_ATTRIBUTES pSA,
   HANDLE phToken;
   OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &phToken);
   long unsigned int tokenInformationLength;
-  GetTokenInformation(phToken, TokenGroups, NULL, 0, &tokenInformationLength);
-  PTOKEN_GROUPS groups =
-      (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                               tokenInformationLength * sizeof(TOKEN_GROUPS));
-  GetTokenInformation(phToken, TokenGroups, groups, tokenInformationLength,
-                      &tokenInformationLength);
-  GetLastError();
-  for (DWORD i = 0; i < groups->GroupCount; ++i) {
-    SID_AND_ATTRIBUTES a = groups->Groups[i];
-    if ((a.Attributes & SE_GROUP_LOGON_ID) == SE_GROUP_LOGON_ID) {
-      psid = a.Sid;
-      break;
+  PTOKEN_GROUPS groups = NULL;
+  PTOKEN_OWNER owner = NULL;
+  if (logon) {
+    GetTokenInformation(phToken, TokenGroups, NULL, 0, &tokenInformationLength);
+    groups =
+        (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                 tokenInformationLength * sizeof(TOKEN_GROUPS));
+    GetTokenInformation(phToken, TokenOwner, groups, 0,
+                        &tokenInformationLength);
+    GetLastError();
+    for (DWORD i = 0; i < groups->GroupCount; ++i) {
+      SID_AND_ATTRIBUTES a = groups->Groups[i];
+      if ((a.Attributes & SE_GROUP_LOGON_ID) == SE_GROUP_LOGON_ID) {
+        psid = a.Sid;
+        break;
+      }
     }
+  } else {
+    GetTokenInformation(phToken, TokenOwner, NULL, 0, &tokenInformationLength);
+    owner =
+        (PTOKEN_OWNER)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                tokenInformationLength * sizeof(TOKEN_OWNER));
+    GetTokenInformation(phToken, TokenOwner, owner, tokenInformationLength,
+                        &tokenInformationLength);
+    psid = owner->Owner;
   }
   if (psid == NULL)
     goto psidfail;
@@ -418,7 +440,10 @@ static int createSecurityWithLogonDacl(PSECURITY_ATTRIBUTES pSA,
 exit:
   HeapFree(GetProcessHeap(), 0, pAcl);
 psidfail:
-  HeapFree(GetProcessHeap(), 0, groups);
+  if (groups)
+    HeapFree(GetProcessHeap(), 0, groups);
+  if (owner)
+    HeapFree(GetProcessHeap(), 0, owner);
   CloseHandle(phToken);
 psdfail:
   HeapFree(GetProcessHeap(), 0, pSD);

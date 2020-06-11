@@ -37,17 +37,20 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
   private final boolean requireStrictLength;
   private final Win32NamedPipeLibraryProvider provider;
   private final boolean useJNI;
+  private final int securityLevel;
 
   public Win32NamedPipeServerSocket(String path) throws IOException {
     this(Win32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path);
   }
 
-  public Win32NamedPipeServerSocket(boolean useJNI, String path) throws IOException {
+  public Win32NamedPipeServerSocket(String path, boolean useJNI, int securityLevel)
+      throws IOException {
     this(
         Win32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES,
         path,
         Win32NamedPipeSocket.DEFAULT_REQUIRE_STRICT_LENGTH,
-        useJNI);
+        useJNI,
+        securityLevel);
   }
 
   /**
@@ -73,7 +76,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
    */
   public Win32NamedPipeServerSocket(int maxInstances, String path, boolean requireStrictLength)
       throws IOException {
-    this(maxInstances, path, requireStrictLength, false);
+    this(maxInstances, path, requireStrictLength, false, Win32SecurityLevel.LOGON_DACL);
   }
   /**
    * The doc for InputStream#read(byte[] b, int off, int len) states that "An attempt is made to
@@ -82,8 +85,9 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
    * the number of bytes to read.
    */
   public Win32NamedPipeServerSocket(
-      int maxInstances, String path, boolean requireStrictLength, boolean useJNI)
+      int maxInstances, String path, boolean requireStrictLength, boolean useJNI, int securityLevel)
       throws IOException {
+    this.securityLevel = securityLevel;
     this.useJNI = useJNI;
     this.provider =
         useJNI
@@ -118,7 +122,8 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               BUFFER_SIZE,
               BUFFER_SIZE,
               0,
-              provider.FILE_GENERIC_READ());
+              provider.FILE_GENERIC_READ(),
+              securityLevel);
     } catch (final IOException e) {
       throw new IOException(
           String.format(
@@ -145,7 +150,8 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               BUFFER_SIZE,
               BUFFER_SIZE,
               0,
-              provider.FILE_ALL_ACCESS());
+              provider.FILE_ALL_ACCESS(),
+              securityLevel);
     } catch (final IOException e) {
       throw new IOException(
           String.format("Could not create named pipe, error %d", provider.GetLastError()));

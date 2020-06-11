@@ -46,7 +46,7 @@ public class SocketTest {
 
   ServerSocket newServerSocket(String socketName) throws IOException {
     return isWin
-        ? new Win32NamedPipeServerSocket(useJNI(), socketName)
+        ? new Win32NamedPipeServerSocket(socketName, useJNI(), Win32SecurityLevel.LOGON_DACL)
         : new UnixDomainServerSocket(socketName, useJNI());
   }
 

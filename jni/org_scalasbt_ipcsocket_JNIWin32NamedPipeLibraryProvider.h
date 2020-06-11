@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
  * Method:    CreateNamedPipeNative
- * Signature: (Ljava/lang/String;IIIIIII)J
+ * Signature: (Ljava/lang/String;IIIIIIII)J
  */
 JNIEXPORT jlong JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNative
-  (JNIEnv *, jobject, jstring, jint, jint, jint, jint, jint, jint, jint);
+  (JNIEnv *, jobject, jstring, jint, jint, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider

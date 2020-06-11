@@ -54,9 +54,11 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       int nOutBufferSize,
       int nInBufferSize,
       int nDefaultTimeOut,
-      int lpSecurityAttributes)
+      int lpSecurityAttributes,
+      int securityLevel)
       throws IOException {
-    SECURITY_ATTRIBUTES sa = Win32SecurityLibrary.createSecurityWithLogonDacl(lpSecurityAttributes);
+    SECURITY_ATTRIBUTES sa =
+        Win32SecurityLibrary.createSecurityWithDacl(lpSecurityAttributes, securityLevel);
     return JNAHandle.make(
         delegate.CreateNamedPipe(
             lpName,
