@@ -44,6 +44,7 @@ for:
 
   install:
   - sudo apt-get -y install mingw-w64
+  - sudo apt-get -y install clang-format
   - curl -sL https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.tgz > ~/sbt-bin.tgz
   - mkdir ~/sbt
   - tar -xf ~/sbt-bin.tgz --directory ~/sbt
@@ -59,7 +60,7 @@ for:
     - /home/appveyor/.jabba/jdk
     - /home/appveyor/.sbt
   test_script:
-    - sbt "test"
+    - sbt "jvmfmtCheckAll; clangfmtCheck; test"
 
 
 -
