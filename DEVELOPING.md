@@ -40,3 +40,22 @@ windows native library is verified to work on linux and mac. The
 ```
 buildWin32 / skip := false
 ```
+
+#### Releasing
+
+Each release should include the latest binaries. The binaries are built during
+each CI run on appveyor. To include them, go to the latest passing appveyor
+build at https://ci.appveyor.com/project/sbt/ipcsocket/history. The required
+artifacts can be found be clicking on the "Image: Ubuntu" and "Image: macOS"
+links. On each PR page is a tab called "Artifacts". Click on that tab and there
+will be download links for the generated artifacts. The ubuntu image provides:
+* src/main/resources/linux/x86_64/libsbtipcsocket.so
+* src/main/resources/win32/x86_64/sbtipcsocket.dll
+
+while the mac os image provides:
+* src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
+
+Download each of these files and overwrite the existing library in the project's
+`src/main/resources` directory. Check in the overwritten libraries and push the
+changes in a new PR that updates the binaries. Once that PR is merged, it is
+safe to make a release off of that commit.
