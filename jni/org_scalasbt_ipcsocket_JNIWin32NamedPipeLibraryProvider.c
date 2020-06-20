@@ -33,6 +33,8 @@
              GetLastError());                                                  \
   } while (0);
 
+#define LOGON_DACL 2 // must match the value in Win32SecurityLevel.java
+
 static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
                                   BOOL logon);
 
@@ -49,7 +51,7 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNati
                                              sizeof(SECURITY_ATTRIBUTES))
                                  : NULL;
   int err = security ? createSecurityWithDacl(pSA, lpSecurityAttributes,
-                                              security == 1)
+                                              security == LOGON_DACL)
                      : 0;
   if (!err || !security) {
     LPCWSTR name = (LPCWSTR)(*env)->GetStringChars(env, lpName, 0);
