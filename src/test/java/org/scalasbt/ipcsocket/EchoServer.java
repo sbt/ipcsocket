@@ -21,23 +21,25 @@ public class EchoServer {
   public void run() throws IOException {
     while (true) {
       Socket clientSocket = serverSocket.accept();
-      CompletableFuture.supplyAsync(() -> {
-        try {
-          PrintWriter out =
-            new PrintWriter(clientSocket.getOutputStream(), true);
-          BufferedReader in = new BufferedReader(
-            new InputStreamReader(clientSocket.getInputStream()));
-          String line;
-          do {
-            line = in.readLine();
-            if (line != null) {
-              System.out.println("server: " + line);
-              out.println(line);
+      CompletableFuture.supplyAsync(
+          () -> {
+            try {
+              PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+              BufferedReader in =
+                  new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+              String line;
+              do {
+                line = in.readLine();
+                if (line != null) {
+                  System.out.println("server: " + line);
+                  out.print(line + "\n");
+                  out.flush();
+                }
+              } while (!line.trim().equals("bye"));
+            } catch (IOException e) {
             }
-          } while (!line.trim().equals("bye"));
-        } catch (IOException e) { }
-        return true;
-      });
+            return true;
+          });
     }
   }
 }

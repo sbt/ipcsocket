@@ -1,20 +1,20 @@
 /*
 
- Copyright 2004-2015, Martian Software, Inc.
+Copyright 2004-2015, Martian Software, Inc.
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
- http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
- */
+*/
 package org.scalasbt.ipcsocket;
 
 import java.io.IOException;
@@ -23,16 +23,15 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.sun.jna.LastErrorException;
-import com.sun.jna.ptr.IntByReference;
-
 /**
- * Implements a {@link ServerSocket} which binds to a local Unix domain socket
- * and returns instances of {@link UnixDomainSocket} from
- * {@link #accept()}.
+ * Implements a {@link ServerSocket} which binds to a local Unix domain socket and returns instances
+ * of {@link UnixDomainSocket} from {@link #accept()}.
  */
 public class UnixDomainServerSocket extends ServerSocket {
   private static final int DEFAULT_BACKLOG = 50;
+  private static final int PF_LOCAL = 1;
+  private static final int AF_LOCAL = 1;
+  private static final int SOCK_STREAM = 1;
 
   // We use an AtomicInteger to prevent a race in this situation which
   // could happen if fd were just an int:
@@ -59,6 +58,7 @@ public class UnixDomainServerSocket extends ServerSocket {
   private final int backlog;
   private boolean isBound;
   private boolean isClosed;
+  private final UnixDomainSocketLibraryProvider provider;
 
   public static class UnixDomainServerSocketAddress extends SocketAddress {
     private final String path;
@@ -72,43 +72,46 @@ public class UnixDomainServerSocket extends ServerSocket {
     }
   }
 
-  /**
-   * Constructs an unbound Unix domain server socket.
-   */
+  /** Constructs an unbound Unix domain server socket. */
   public UnixDomainServerSocket() throws IOException {
-    this(DEFAULT_BACKLOG, null);
+    this(DEFAULT_BACKLOG, null, false);
   }
 
-  /**
-   * Constructs an unbound Unix domain server socket with the specified listen backlog.
-   */
+  /** Constructs an unbound Unix domain server socket with the specified listen backlog. */
   public UnixDomainServerSocket(int backlog) throws IOException {
-    this(backlog, null);
+    this(backlog, null, false);
   }
 
-  /**
-   * Constructs and binds a Unix domain server socket to the specified path.
-   */
+  /** Constructs and binds a Unix domain server socket to the specified path. */
   public UnixDomainServerSocket(String path) throws IOException {
-    this(DEFAULT_BACKLOG, path);
+    this(DEFAULT_BACKLOG, path, false);
+  }
+
+  /** Constructs and binds a Unix domain server socket to the specified path. */
+  public UnixDomainServerSocket(String path, boolean useJNI) throws IOException {
+    this(DEFAULT_BACKLOG, path, useJNI);
   }
 
   /**
-   * Constructs and binds a Unix domain server socket to the specified path
-   * with the specified listen backlog.
+   * Constructs and binds a Unix domain server socket to the specified path with the specified
+   * listen backlog.
    */
   public UnixDomainServerSocket(int backlog, String path) throws IOException {
+    this(backlog, path, false);
+  }
+  /**
+   * Constructs and binds a Unix domain server socket to the specified path with the specified
+   * listen backlog.
+   */
+  public UnixDomainServerSocket(int backlog, String path, boolean useJNI) throws IOException {
     try {
-      fd = new AtomicInteger(
-          UnixDomainSocketLibrary.socket(
-              UnixDomainSocketLibrary.PF_LOCAL,
-              UnixDomainSocketLibrary.SOCK_STREAM,
-              0));
+      provider = UnixDomainSocketLibraryProvider.get(useJNI);
+      fd = new AtomicInteger(provider.socket(PF_LOCAL, SOCK_STREAM, 0));
       this.backlog = backlog;
       if (path != null) {
         bind(new UnixDomainServerSocketAddress(path));
       }
-    } catch (LastErrorException e) {
+    } catch (NativeErrorException e) {
       throw new IOException(e);
     }
   }
@@ -125,14 +128,13 @@ public class UnixDomainServerSocket extends ServerSocket {
       throw new IllegalStateException("Socket is already closed");
     }
     UnixDomainServerSocketAddress unEndpoint = (UnixDomainServerSocketAddress) endpoint;
-    UnixDomainSocketLibrary.SockaddrUn address =
-        new UnixDomainSocketLibrary.SockaddrUn(unEndpoint.getPath());
+    byte[] address = unEndpoint.getPath().getBytes();
     try {
       int socketFd = fd.get();
-      UnixDomainSocketLibrary.bind(socketFd, address, address.size());
-      UnixDomainSocketLibrary.listen(socketFd, backlog);
+      provider.bind(socketFd, address, address.length);
+      provider.listen(socketFd, backlog);
       isBound = true;
-    } catch (LastErrorException e) {
+    } catch (NativeErrorException e) {
       throw new IOException(e);
     }
   }
@@ -150,13 +152,9 @@ public class UnixDomainServerSocket extends ServerSocket {
       }
     }
     try {
-      UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new UnixDomainSocketLibrary.SockaddrUn();
-      IntByReference addressLen = new IntByReference();
-      addressLen.setValue(sockaddrUn.size());
-      int clientFd = UnixDomainSocketLibrary.accept(fd.get(), sockaddrUn, addressLen);
+      int clientFd = provider.accept(fd.get());
       return new UnixDomainSocket(clientFd);
-    } catch (LastErrorException e) {
+    } catch (NativeErrorException e) {
       throw new IOException(e);
     }
   }
@@ -166,10 +164,11 @@ public class UnixDomainServerSocket extends ServerSocket {
       throw new IllegalStateException("Socket is already closed");
     }
     try {
+
       // Ensure any pending call to accept() fails.
-      UnixDomainSocketLibrary.close(fd.getAndSet(-1));
+      provider.close(fd.getAndSet(-1));
       isClosed = true;
-    } catch (LastErrorException e) {
+    } catch (NativeErrorException e) {
       throw new IOException(e);
     }
   }
