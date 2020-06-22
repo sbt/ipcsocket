@@ -31,7 +31,7 @@ val platforms = Map(
 
 inThisBuild(
   List(
-    version := "1.0.1-SNAPSHOT",
+    version := "1.1.1-SNAPSHOT",
     organization := "org.scala-sbt.ipcsocket",
     organizationName := "sbt",
     organizationHomepage := Some(url("http://scala-sbt.org/")),
