@@ -52,7 +52,14 @@ inThisBuild(
       if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
       else Some("releases" at nexus + "service/local/staging/deploy/maven2")
     },
-    nativeArch := "x86_64",
+    nativeArch := {
+      System.getProperty("os.arch") match {
+        case "amd64" =>
+          "x86_64"
+        case arch =>
+          arch
+      }
+    },
     nativeCompiler := "gcc",
     nativeCompileOptions := "-shared" :: "-O2" :: "-Wall" :: "-Wextra" :: Nil,
     nativePlatform := (System.getProperty("os.name").head.toLower match {
