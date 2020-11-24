@@ -16,7 +16,9 @@ val nativeArtifact = settingKey[Path]("The target artifact location")
 val nativeCompiler = settingKey[String]("The compiler for native compilation")
 val nativeCompileOptions = settingKey[Seq[String]]("The native compilation options")
 val nativeIncludes = settingKey[Seq[String]]("The native include paths")
-val buildDarwin = taskKey[Path]("Build mac native library")
+val buildDarwin = taskKey[Path]("Build fat binary for x86_64 and arm64 on mac os")
+val buildDarwinX86_64 = taskKey[Path]("Build mac native library for x86_64")
+val buildDarwinArm64 = taskKey[Path]("Build mac native library for arm64")
 val buildLinux = taskKey[Path]("Build linux native library")
 val buildWin32 = taskKey[Path]("Build windows native library")
 
@@ -28,6 +30,18 @@ val platforms = Map(
   "darwin" -> s"lib$libShortName.dylib",
   "linux" -> s"lib$libShortName.so"
 )
+
+buildDarwin := {
+  val x86 = buildDarwinX86_64.value.toString
+  val arm = buildDarwinArm64.value.toString
+  val fatBinary =
+    (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
+  val logger = streams.value.log
+  scala.util.Try(eval(Seq("lipo", "-create", "-o", s"$fatBinary", x86, arm), logger))
+  fatBinary
+}
+
+buildDarwinArm64 / nativeArch := "arm64"
 
 inThisBuild(
   List(
@@ -52,14 +66,7 @@ inThisBuild(
       if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
       else Some("releases" at nexus + "service/local/staging/deploy/maven2")
     },
-    nativeArch := {
-      System.getProperty("os.arch") match {
-        case "amd64" =>
-          "x86_64"
-        case arch =>
-          arch
-      }
-    },
+    nativeArch := "x86_64",
     nativeCompiler := "gcc",
     nativeCompileOptions := "-shared" :: "-O2" :: "-Wall" :: "-Wextra" :: Nil,
     nativePlatform := (System.getProperty("os.name").head.toLower match {
@@ -79,7 +86,8 @@ name := "ipcsocket"
 libraryDependencies ++= Seq(jna, jnaPlatform, junitInterface % Test)
 crossPaths := false
 autoScalaLibrary := false
-nativeLibrarySettings("darwin")
+nativeLibrarySettings("darwinX86_64")
+nativeLibrarySettings("darwinArm64")
 nativeLibrarySettings("linux")
 nativeLibrarySettings("win32")
 if (!isWin) (buildWin32 / nativeCompiler := "x86_64-w64-mingw32-gcc") :: Nil else Nil
@@ -102,19 +110,20 @@ Global / javaHome := {
 
 def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
   val key = TaskKey[Path](s"build${platform.head.toUpper}${platform.tail}")
+  val shortPlatform = if (platform.startsWith("darwin")) "darwin" else platform
   Def.settings(
-    key / nativeCompileOptions ++= (if (platform == "win32")
-                                      Seq(
-                                        "-D__WIN__",
-                                        "-lkernel32",
-                                        "-ladvapi32",
-                                        "-ffreestanding",
-                                        "-fdiagnostics-color=always",
-                                      )
-                                    else Nil),
+    key / nativeCompileOptions ++= (shortPlatform match {
+      case "win32" =>
+        Seq("-D__WIN__", "-lkernel32", "-ladvapi32", "-ffreestanding", "-fdiagnostics-color=always")
+      case "darwin" => Seq("-arch", (key / nativeArch).value)
+      case _        => Nil
+    }),
     key / nativeArtifact := {
-      val name = platforms.get(platform).getOrElse(s"lib$libShortName.so")
-      (Compile / resourceDirectory).value.toPath / platform / nativeArch.value / name
+      val name = platforms.get(shortPlatform).getOrElse(s"lib$libShortName.so")
+      val resourceDir = (Compile / resourceDirectory).value.toPath
+      val targetDir = (Compile / target).value.toPath
+      val arch = (key / nativeArch).value
+      (if (shortPlatform == "darwin") targetDir else resourceDir) / platform / arch / name
     },
     key / fileInputs += {
       val glob = if (platform == "win32") "*Win*.{c,h}" else "*Unix*.{c,h}"
@@ -122,10 +131,10 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
     },
     key / skip := isWin || ((ThisBuild / nativePlatform).value match {
       case `platform` => false
-      case p          => p != "win32"
+      case p          => p != "win32" && !platform.startsWith(p)
     }),
     key := Def.taskDyn {
-      if ((key / skip).value) Def.task(Paths.get(""))
+      if ((key / skip).value) Def.task((key / nativeArtifact).value)
       else
         Def.task {
           val artifact = (key / nativeArtifact).value
@@ -139,49 +148,52 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
 
           if (key.inputFileChanges.hasChanges || !artifact.toFile.exists) {
             Files.createDirectories(artifact.getParent)
-            val cmd = Seq(compiler, "-o", artifact.toString) ++ includes ++ options ++ inputs
-            logger.debug(s"Running compilation: ${cmd mkString " "}")
-            val proc = new java.lang.ProcessBuilder(cmd: _*).start()
-            val thread = new Thread() {
-              setDaemon(true)
-              start()
-              val is = proc.getInputStream
-              val es = proc.getErrorStream
-              val isOutput = new ArrayBuffer[Int]
-              val esOutput = new ArrayBuffer[Int]
-              def drain(stream: InputStream, buffer: ArrayBuffer[Int], isError: Boolean): Unit = {
-                while (stream.available > 0) {
-                  stream.read match {
-                    case 10 =>
-                      val msg = new String(buffer.map(_.toByte).toArray)
-                      buffer.clear()
-                      if (isError) logger.error(msg) else logger.info(msg)
-                    case c => buffer += c
-                  }
-                }
-              }
-              def drain(): Unit = {
-                drain(is, isOutput, false)
-                drain(es, esOutput, true)
-              }
-              override def run(): Unit = {
-                while (proc.isAlive) {
-                  drain()
-                  Thread.sleep(10)
-                }
-                drain()
-              }
-            }
-            proc.waitFor(1, TimeUnit.MINUTES)
-            thread.join()
-            if (proc.exitValue != 0)
-              throw new IllegalStateException(
-                s"'${cmd mkString " "}' exited with ${proc.exitValue}"
-              )
+            eval(Seq(compiler, "-o", artifact.toString) ++ includes ++ options ++ inputs, logger)
           }
           artifact
         }
     }.value,
     key := key.dependsOn(Compile / compile).value,
   )
+}
+
+def eval(cmd: Seq[String], logger: Logger): Unit = {
+  logger.debug(s"Running compilation: ${cmd mkString " "}")
+  val proc = new java.lang.ProcessBuilder(cmd: _*).start()
+  val thread = new Thread() {
+    setDaemon(true)
+    start()
+    val is = proc.getInputStream
+    val es = proc.getErrorStream
+    val isOutput = new ArrayBuffer[Int]
+    val esOutput = new ArrayBuffer[Int]
+    def drain(stream: InputStream, buffer: ArrayBuffer[Int], isError: Boolean): Unit = {
+      while (stream.available > 0) {
+        stream.read match {
+          case 10 =>
+            val msg = new String(buffer.map(_.toByte).toArray)
+            buffer.clear()
+            if (isError) logger.error(msg) else logger.info(msg)
+          case c => buffer += c
+        }
+      }
+    }
+    def drain(): Unit = {
+      drain(is, isOutput, false)
+      drain(es, esOutput, true)
+    }
+    override def run(): Unit = {
+      while (proc.isAlive) {
+        drain()
+        Thread.sleep(10)
+      }
+      drain()
+    }
+  }
+  proc.waitFor(1, TimeUnit.MINUTES)
+  thread.join()
+  if (proc.exitValue != 0)
+    throw new IllegalStateException(
+      s"'${cmd mkString " "}' exited with ${proc.exitValue}"
+    )
 }
