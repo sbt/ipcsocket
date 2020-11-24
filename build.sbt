@@ -13,6 +13,7 @@ val junitInterface = "com.novocode" % "junit-interface" % "0.11"
 val nativePlatform = settingKey[String]("The target platform")
 val nativeArch = settingKey[String]("The target architecture")
 val nativeArtifact = settingKey[Path]("The target artifact location")
+val nativeBuild = taskKey[Path]("Build the native artifact")
 val nativeCompiler = settingKey[String]("The compiler for native compilation")
 val nativeCompileOptions = settingKey[Seq[String]]("The native compilation options")
 val nativeIncludes = settingKey[Seq[String]]("The native include paths")
@@ -133,26 +134,26 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
       case `platform` => false
       case p          => p != "win32" && !platform.startsWith(p)
     }),
-    key := Def.taskDyn {
-      if ((key / skip).value) Def.task((key / nativeArtifact).value)
-      else
-        Def.task {
-          val artifact = (key / nativeArtifact).value
-          val inputs = key.inputFiles.collect {
-            case i if i.getFileName.toString.endsWith(".c") => i.toString
-          }
-          val options = (key / nativeCompileOptions).value
-          val compiler = (key / nativeCompiler).value
-          val logger = streams.value.log
-          val includes = (key / nativeIncludes).value
+    key / nativeBuild := {
+      val artifact = (key / nativeArtifact).value
+      val inputs = key.inputFiles.collect {
+        case i if i.getFileName.toString.endsWith(".c") => i.toString
+      }
+      val options = (key / nativeCompileOptions).value
+      val compiler = (key / nativeCompiler).value
+      val logger = streams.value.log
+      val includes = (key / nativeIncludes).value
 
-          if (key.inputFileChanges.hasChanges || !artifact.toFile.exists) {
-            Files.createDirectories(artifact.getParent)
-            eval(Seq(compiler, "-o", artifact.toString) ++ includes ++ options ++ inputs, logger)
-          }
-          artifact
-        }
-    }.value,
+      if (key.inputFileChanges.hasChanges || !artifact.toFile.exists) {
+        Files.createDirectories(artifact.getParent)
+        eval(Seq(compiler, "-o", artifact.toString) ++ includes ++ options ++ inputs, logger)
+      }
+      artifact
+    },
+    key := {
+      if ((key / skip).value) (key / nativeArtifact).value
+      else (key / nativeBuild).value
+    },
     key := key.dependsOn(Compile / compile).value,
   )
 }
