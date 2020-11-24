@@ -23,18 +23,12 @@ class NativeLoader {
   private static final boolean isMac;
   private static final boolean isLinux;
   private static final boolean isWindows;
-  private static final String arch;
 
   static {
     final String os = System.getProperty("os.name", "").toLowerCase();
     isMac = os.startsWith("mac");
     isLinux = os.startsWith("linux");
     isWindows = os.startsWith("windows");
-    String maybeArch = System.getProperty("os.arch", "");
-    if ("amd64".equals(maybeArch)) {
-      maybeArch = "x86_64";
-    }
-    arch = maybeArch;
   }
 
   private static final String pid =
@@ -46,6 +40,10 @@ class NativeLoader {
 
   static void load() throws UnsatisfiedLinkError {
     if (!loaded.get()) {
+      final String os = System.getProperty("os.name", "").toLowerCase();
+      final boolean isMac = os.startsWith("mac");
+      final boolean isLinux = os.startsWith("linux");
+      final boolean isWindows = os.startsWith("windows");
       final boolean is64bit = System.getProperty("sun.arch.data.model", "64").equals("64");
       String tmpDir = tmpDirLocation();
       if (is64bit && (isMac || isLinux || isWindows)) {
@@ -53,7 +51,7 @@ class NativeLoader {
         final String libName = (isWindows ? "" : "lib") + "sbtipcsocket" + extension;
         final String prefix = isMac ? "darwin" : isLinux ? "linux" : "win32";
 
-        final String resource = prefix + "/" + arch + "/" + libName;
+        final String resource = prefix + "/x86_64/" + libName;
         final URL url = NativeLoader.class.getClassLoader().getResource(resource);
         if (url == null) throw new UnsatisfiedLinkError(resource + " not found on classpath");
         try {

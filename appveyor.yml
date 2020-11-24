@@ -19,7 +19,7 @@ for:
     name: libsbtipcsocket.dylib
 
   install:
-  - curl -sL https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.tgz > ~/sbt-bin.tgz
+  - curl -sL https://github.com/sbt/sbt/releases/download/v1.4.4/sbt-1.4.4.tgz > ~/sbt-bin.tgz
   - mkdir ~/sbt
   - tar -xf ~/sbt-bin.tgz --directory ~/sbt
   - export JAVA_HOME="/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/"
@@ -45,7 +45,7 @@ for:
   install:
   - sudo apt-get -y install mingw-w64
   - sudo apt-get -y install clang-format
-  - curl -sL https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.tgz > ~/sbt-bin.tgz
+  - curl -sL https://github.com/sbt/sbt/releases/download/v1.4.4/sbt-1.4.4.tgz > ~/sbt-bin.tgz
   - mkdir ~/sbt
   - tar -xf ~/sbt-bin.tgz --directory ~/sbt
   - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.0/install.sh | bash && . ~/.jabba/jabba.sh
@@ -75,7 +75,7 @@ for:
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         if (!(Test-Path -Path "C:\sbt" )) {
           (new-object System.Net.WebClient).DownloadFile(
-            'https://github.com/sbt/sbt/releases/download/v1.3.10/sbt-1.3.10.zip',
+            'https://github.com/sbt/sbt/releases/download/v1.4.4/sbt-1.4.4.zip',
             'C:\sbt-bin.zip'
           )
           [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
