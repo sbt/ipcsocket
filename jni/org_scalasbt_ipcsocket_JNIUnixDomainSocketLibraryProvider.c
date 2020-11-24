@@ -127,3 +127,10 @@ Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_errString(
   const char *err = strerror(code);
   return (*env)->NewStringUTF(env, err);
 }
+
+JNIEXPORT jint JNICALL
+Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_maxSocketLength(
+    UNUSED JNIEnv *env, UNUSED jobject object) {
+  struct sockaddr_un un;
+  return sizeof(un.sun_path);
+}

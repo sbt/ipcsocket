@@ -70,6 +70,8 @@ class JNIUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
 
   native int shutdownNative(int fd, int how);
 
+  public native int maxSocketLength();
+
   native String errString(int error);
 
   static {
