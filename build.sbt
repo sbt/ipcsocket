@@ -33,14 +33,17 @@ val platforms = Map(
 )
 
 buildDarwin := {
-  val x86 = buildDarwinX86_64.value.toString
-  val arm = buildDarwinArm64.value.toString
-  val fatBinary =
-    (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
-  val logger = streams.value.log
-  scala.util.Try(eval(Seq("lipo", "-create", "-o", s"$fatBinary", x86, arm), logger))
-  fatBinary
+  if (!(buildDarwin / skip).value) {
+    val fatBinary =
+      (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
+    val x86 = buildDarwinX86_64.value.toString
+    val arm = buildDarwinArm64.value.toString
+    val logger = streams.value.log
+    scala.util.Try(eval(Seq("lipo", "-create", "-o", s"$fatBinary", x86, arm), logger))
+    fatBinary
+  } else (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
 }
+buildDarwin / skip := Option(System.getenv.get("CI")).fold(false)(_ => true)
 
 buildDarwinArm64 / nativeArch := "arm64"
 
