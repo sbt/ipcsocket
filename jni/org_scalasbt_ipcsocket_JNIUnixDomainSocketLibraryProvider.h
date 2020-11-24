@@ -81,6 +81,14 @@ JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryPro
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider
+ * Method:    maxSocketLength
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_maxSocketLength
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider
  * Method:    errString
  * Signature: (I)Ljava/lang/String;
  */

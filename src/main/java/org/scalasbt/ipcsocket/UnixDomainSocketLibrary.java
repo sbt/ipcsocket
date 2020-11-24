@@ -267,4 +267,9 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
       throw new NativeErrorException(e.getErrorCode(), e.getMessage());
     }
   }
+
+  @Override
+  public int maxSocketLength() {
+    return new UnixDomainSocketLibrary.SockaddrUn().sunPath.length;
+  }
 }
