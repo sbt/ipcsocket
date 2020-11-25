@@ -49,7 +49,7 @@ buildDarwinArm64 / nativeArch := "arm64"
 
 inThisBuild(
   List(
-    version := "1.2.1-SNAPSHOT",
+    version := "1.3.1-SNAPSHOT",
     organization := "org.scala-sbt.ipcsocket",
     organizationName := "sbt",
     organizationHomepage := Some(url("http://scala-sbt.org/")),
