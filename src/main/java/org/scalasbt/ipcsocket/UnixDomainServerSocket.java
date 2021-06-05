@@ -59,6 +59,7 @@ public class UnixDomainServerSocket extends ServerSocket {
   private boolean isBound;
   private boolean isClosed;
   private final UnixDomainSocketLibraryProvider provider;
+  private final boolean useJNI;
 
   public static class UnixDomainServerSocketAddress extends SocketAddress {
     private final String path;
@@ -105,6 +106,7 @@ public class UnixDomainServerSocket extends ServerSocket {
    */
   public UnixDomainServerSocket(int backlog, String path, boolean useJNI) throws IOException {
     try {
+      this.useJNI = useJNI;
       provider = UnixDomainSocketLibraryProvider.get(useJNI);
       fd = new AtomicInteger(provider.socket(PF_LOCAL, SOCK_STREAM, 0));
       this.backlog = backlog;
@@ -153,7 +155,7 @@ public class UnixDomainServerSocket extends ServerSocket {
     }
     try {
       int clientFd = provider.accept(fd.get());
-      return new UnixDomainSocket(clientFd);
+      return new UnixDomainSocket(clientFd, useJNI);
     } catch (NativeErrorException e) {
       throw new IOException(e);
     }
