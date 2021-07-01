@@ -1,0 +1,11 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Fran Mendez",
+  "dependencies": {
+    "socket-ipc": "^2.2.0"
+  }
+}
