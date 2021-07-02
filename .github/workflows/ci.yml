@@ -108,3 +108,8 @@ jobs:
         find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
         find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
         find $HOME/.sbt                              -name "*.lock"               -delete || true
+    - name: Test examples compilation
+      shell: bash
+      run: |
+        cd examples/echo-server
+        mvn package
