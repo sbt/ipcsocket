@@ -15,6 +15,10 @@ See unit tests for the details.
 libraryDependencies += "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
 ```
 
+### Examples
+
+Check out the [examples directory](./examples).
+
 ### Why not just use TCP/IP?
 
 TCP/IP is open to everyone on the network, if someone can get hold of your machine, the person could connect to it.
