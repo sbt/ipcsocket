@@ -17,44 +17,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.Random;
 
-public class SocketTest {
-  boolean useJNI() {
-    return false;
-  }
-
-  final boolean isWin = System.getProperty("os.name", "").toLowerCase().startsWith("win");
-
-  interface MayThrow {
-    void accept(String string) throws IOException, InterruptedException;
-  }
-
-  final void withSocket(final MayThrow consumer) throws IOException, InterruptedException {
-    Random rand = new Random();
-    Path tempDir = isWin ? null : Files.createTempDirectory("ipcsocket");
-    Path socketPath = tempDir != null ? tempDir.resolve("foo" + rand.nextInt() + ".sock") : null;
-    String socket =
-        socketPath != null ? socketPath.toString() : "\\\\.\\pipe\\ipcsockettest" + rand.nextInt();
-    try {
-      consumer.accept(socket);
-    } finally {
-      if (socketPath != null) Files.deleteIfExists(socketPath);
-      if (tempDir != null) Files.deleteIfExists(socketPath);
-    }
-  }
-
-  ServerSocket newServerSocket(String socketName) throws IOException {
-    return isWin
-        ? new Win32NamedPipeServerSocket(socketName, useJNI(), Win32SecurityLevel.LOGON_DACL)
-        : new UnixDomainServerSocket(socketName, useJNI());
-  }
-
-  Socket newClientSocket(String socketName) throws IOException {
-    return isWin
-        ? new Win32NamedPipeSocket(socketName, useJNI())
-        : new UnixDomainSocket(socketName, useJNI());
-  }
+public class SocketTest extends BaseSocketSetup {
 
   @Test
   public void testAssertEquals() throws IOException, InterruptedException {
