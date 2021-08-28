@@ -20,7 +20,7 @@ public class Sender implements Runnable {
 
     @Override
     public void run() {
-        try (var out = new PrintWriter(socket.getOutputStream(), true)) {
+        try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
             for (int i = 0; i < sendMessages; i++) {
                 System.out.println("[" + name + "] sending msg: " + i);
                 out.println("hello" + i);

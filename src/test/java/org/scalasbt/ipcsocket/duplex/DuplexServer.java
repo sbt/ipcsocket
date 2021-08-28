@@ -1,7 +1,10 @@
 package org.scalasbt.ipcsocket.duplex;
 
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import org.scalasbt.ipcsocket.BaseSocketSetup;
 
 public class DuplexServer extends BaseSocketSetup {
@@ -18,11 +21,11 @@ public class DuplexServer extends BaseSocketSetup {
     }
 
     public void startAndAwait() {
-        var pool = Executors.newFixedThreadPool(10);
+        ExecutorService pool = Executors.newFixedThreadPool(10);
 
         System.out.println("DuplexServer started. Waiting for client...");
-        try (var serverSocket = newServerSocket(pipeName);
-                var socket = serverSocket.accept()) {
+        try (ServerSocket serverSocket = newServerSocket(pipeName);
+                Socket socket = serverSocket.accept()) {
 
             sender = new Sender("server", socket, sendMessages);
             receiver = new Receiver("server", socket);

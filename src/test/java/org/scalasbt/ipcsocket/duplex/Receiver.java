@@ -19,7 +19,7 @@ public class Receiver implements Runnable {
 
     @Override
     public void run() {
-        try (var in = new Scanner(socket.getInputStream())) {
+        try (Scanner in = new Scanner(socket.getInputStream())) {
             while (true) {
                 while (in.hasNextLine()) {
                     System.out.println("[" + name + "] got a message: " + in.nextLine());

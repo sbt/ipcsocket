@@ -1,6 +1,7 @@
 package org.scalasbt.ipcsocket.duplex;
 
 import static org.junit.Assert.assertEquals;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.Test;
 import org.scalasbt.ipcsocket.BaseSocketSetup;
@@ -11,11 +12,11 @@ public class DuplexTest extends BaseSocketSetup {
     public void testDuplexCommunication() throws Exception {
         withSocket(socketName -> {
 
-            var pool = Executors.newFixedThreadPool(2);
+            ExecutorService pool = Executors.newFixedThreadPool(2);
 
             // start server
             int serverSendMessages = 15;
-            var server = new DuplexServer(socketName, serverSendMessages);
+            DuplexServer server = new DuplexServer(socketName, serverSendMessages);
             pool.execute(() -> server.startAndAwait());
             
             // wait for pipe to be instantiated
@@ -23,7 +24,7 @@ public class DuplexTest extends BaseSocketSetup {
 
             // start client
             int clientSendMessages = 7;
-            var client = new DuplexClient(socketName, clientSendMessages);
+            DuplexClient client = new DuplexClient(socketName, clientSendMessages);
             pool.execute(() -> client.startAndAwait());
 
             // wait client and server to terminate
