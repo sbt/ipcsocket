@@ -1,1 +1,15 @@
 **/target
+
+# Eclipse/VsCode
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+
+# VsCode
+.vscode
+
+# Metals
+.metals
+

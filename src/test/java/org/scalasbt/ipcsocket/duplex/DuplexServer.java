@@ -36,9 +36,4 @@ public class DuplexServer extends BaseSocketSetup {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        var server = new DuplexServer("testDuplex", 3);
-        server.startAndAwait();
-        System.out.println("Server has received messages: " + server.receiver.receivedMessages);
-    }
 }
