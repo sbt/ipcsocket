@@ -11,7 +11,7 @@ import java.util.Random;
 public abstract class BaseSocketSetup {
 
   final boolean isWin = System.getProperty("os.name", "").toLowerCase().startsWith("win");
-  
+
   Random rand = new Random();
 
   boolean useJNI() {
@@ -21,7 +21,7 @@ public abstract class BaseSocketSetup {
   public static interface MayThrow {
     void accept(String string) throws IOException, InterruptedException;
   }
-  
+
   protected void withSocket(final MayThrow consumer) throws IOException, InterruptedException {
     Path tempDir = isWin ? null : Files.createTempDirectory("ipcsocket");
     Path socketPath = tempDir != null ? tempDir.resolve("foo" + rand.nextInt() + ".sock") : null;
