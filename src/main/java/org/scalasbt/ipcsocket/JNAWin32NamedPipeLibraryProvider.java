@@ -233,7 +233,7 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
 
   @Override
   public int ERROR_PIPE_CONNECTED() {
-    return WinError.ERROR_NO_DATA;
+    return WinError.ERROR_PIPE_CONNECTED;
   }
 
   @Override
