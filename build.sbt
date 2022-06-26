@@ -99,7 +99,6 @@ buildWin32 / skip := {
   isWin || Try(s"which ${(buildWin32 / nativeCompiler).value}".!!).fold(_ => true, _.isEmpty)
 }
 Test / fork := true
-Test / javaOptions += s"-Dsbt.ipcsocket.tmpdir=${(Compile / target).value}/jni"
 Test / fullClasspath :=
   (Test / fullClasspath).dependsOn(buildDarwin, buildLinux, buildWin32).value
 clangfmt / fileInputs += baseDirectory.value.toGlob / "jni" / "*.c"
