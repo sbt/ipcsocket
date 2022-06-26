@@ -32,7 +32,7 @@ public class DuplexServer extends BaseSocketSetup {
       pool.execute(sender);
       pool.execute(receiver);
 
-      Thread.sleep((sendMessages + 2) * 1000);
+      Thread.sleep(30 * 1000);
       pool.shutdownNow();
     } catch (InterruptedException | IOException e) {
       e.printStackTrace();

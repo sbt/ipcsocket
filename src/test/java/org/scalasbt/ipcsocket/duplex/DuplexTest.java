@@ -28,7 +28,7 @@ public class DuplexTest extends BaseSocketSetup {
           pool.execute(() -> client.startAndAwait());
 
           // wait client and server to terminate
-          Thread.sleep((Math.max(serverSendMessages, clientSendMessages) + 1) * 1000);
+          Thread.sleep((Math.max(serverSendMessages, clientSendMessages) + 3) * 1000);
           pool.shutdown();
 
           assertEquals(serverSendMessages, client.receiver.receivedMessages);
