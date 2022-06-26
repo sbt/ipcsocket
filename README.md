@@ -12,7 +12,7 @@ See unit tests for the details.
 ### Module ID
 
 ```scala
-libraryDependencies += "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
+libraryDependencies += "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.5.0"
 ```
 
 ### Examples
