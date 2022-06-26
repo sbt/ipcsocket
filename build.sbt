@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 import scala.sys.process._
 
-val jnaVersion = "5.8.0"
+val jnaVersion = "5.12.0"
 val jna = "net.java.dev.jna" % "jna" % jnaVersion
 
 val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
