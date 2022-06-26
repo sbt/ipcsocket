@@ -34,9 +34,17 @@ class NativeLoader {
   private static final String pid =
       isWindows ? "" : ManagementFactory.getRuntimeMXBean().getName().replaceAll("@.*", "");
 
-  private static String tmpDirLocation() {
-    return System.getProperty("sbt.ipcsocket.tmpdir", System.getProperty("java.io.tmpdir"));
+  private static Path tmpDir() {
+    String prop = System.getProperty("sbt.ipcsocket.tmpdir");
+    String tmp = System.getProperty("java.io.tmpdir");
+    if (prop != null) {
+      return Paths.get(prop);
+    } else {
+      return Paths.get(tmp).resolve(".sbt").resolve("ipcsocket");
+    }
   }
+
+  private static final String tempFilePrefix = "libsbtipcsocket";
 
   static void load() throws UnsatisfiedLinkError {
     if (!loaded.get()) {
@@ -45,7 +53,6 @@ class NativeLoader {
       final boolean isLinux = os.startsWith("linux");
       final boolean isWindows = os.startsWith("windows");
       final boolean is64bit = System.getProperty("sun.arch.data.model", "64").equals("64");
-      String tmpDir = tmpDirLocation();
       if (is64bit && (isMac || isLinux || isWindows)) {
         final String extension = "." + (isMac ? "dylib" : isWindows ? "dll" : "so");
         final String libName = (isWindows ? "" : "lib") + "sbtipcsocket" + extension;
@@ -55,11 +62,8 @@ class NativeLoader {
         final URL url = NativeLoader.class.getClassLoader().getResource(resource);
         if (url == null) throw new UnsatisfiedLinkError(resource + " not found on classpath");
         try {
-          final Path base =
-              tmpDir == null
-                  ? Files.createTempDirectory("sbtipcsocket")
-                  : Files.createDirectories(Paths.get(tmpDir));
-          final Path output = Files.createTempFile(base, "libsbtipcsocket", extension);
+          final Path base = Files.createDirectories(tmpDir());
+          final Path output = Files.createTempFile(base, tempFilePrefix, extension);
           try (final InputStream in = url.openStream();
               final FileChannel channel = FileChannel.open(output, StandardOpenOption.WRITE)) {
             int total = 0;
@@ -117,7 +121,7 @@ class NativeLoader {
     public void run() {
       try {
         Files.walkFileTree(
-            Paths.get(tmpDirLocation()),
+            tmpDir(),
             new FileVisitor<Path>() {
               @Override
               public FileVisitResult preVisitDirectory(
@@ -128,7 +132,10 @@ class NativeLoader {
               @Override
               public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs)
                   throws IOException {
-                if (isWindows) {
+                if (!file.getFileName().toString().startsWith(tempFilePrefix)) {
+                  // do nothing
+                  return FileVisitResult.CONTINUE;
+                } else if (isWindows) {
                   try {
                     Files.deleteIfExists(file);
                   } catch (final IOException e) {
