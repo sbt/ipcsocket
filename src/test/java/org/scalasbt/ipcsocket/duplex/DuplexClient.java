@@ -28,7 +28,7 @@ public class DuplexClient extends BaseSocketSetup {
       pool.execute(sender);
       pool.execute(receiver);
 
-      Thread.sleep(sendMessages * 1000);
+      Thread.sleep(30 * 1000);
       pool.shutdownNow();
     } catch (InterruptedException | IOException e) {
       e.printStackTrace();
