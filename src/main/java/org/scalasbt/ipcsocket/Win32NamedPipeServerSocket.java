@@ -98,7 +98,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     this.closeCallback =
         handle -> {
           if (connectedHandles.remove(handle)) {
-            closeConnectedPipe(handle, false);
+            closeConnectedPipe(handle);
           }
           if (openHandles.remove(handle)) {
             closeOpenPipe(handle);
@@ -208,7 +208,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
       List<Handle> handlesToDisconnect = new ArrayList<>();
       connectedHandles.drainTo(handlesToDisconnect);
       for (Handle handle : handlesToDisconnect) {
-        closeConnectedPipe(handle, true);
+        closeConnectedPipe(handle);
       }
     } finally {
       provider.CloseHandle(lockHandle);
@@ -220,10 +220,8 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     provider.CloseHandle(handle);
   }
 
-  private void closeConnectedPipe(Handle handle, boolean shutdown) throws IOException {
-    if (!shutdown) {
-      provider.WaitForSingleObject(handle, 10000);
-    }
+  private void closeConnectedPipe(Handle handle) throws IOException {
+    provider.FlushFileBuffers(handle);
     provider.DisconnectNamedPipe(handle);
     provider.CloseHandle(handle);
   }

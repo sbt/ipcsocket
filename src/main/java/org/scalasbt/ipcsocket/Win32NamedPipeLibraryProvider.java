@@ -41,13 +41,13 @@ interface Win32NamedPipeLibraryProvider {
 
   Handle CreateEvent(boolean bManualReset, boolean bInitialState, String lpName) throws IOException;
 
-  int WaitForSingleObject(Handle hHandle, int dwMilliseconds);
-
   int GetLastError();
 
   Overlapped NewOverlapped(Handle hEvent);
 
   void DeleteOverlapped(Overlapped overlapped);
+
+  boolean FlushFileBuffers(Handle handle);
 
   // Constants:
   int ERROR_IO_PENDING();
