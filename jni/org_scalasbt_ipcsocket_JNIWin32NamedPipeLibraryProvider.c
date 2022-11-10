@@ -239,15 +239,15 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateEventNative(
 }
 
 jint JNICALL
-Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_WaitForSingleObjectNative(
-    UNUSED JNIEnv *env, UNUSED jobject object, jlong handlePointer, jint wait) {
-  return WaitForSingleObject((HANDLE)handlePointer, wait);
-}
-
-jint JNICALL
 Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_GetLastError(
     UNUSED JNIEnv *env, UNUSED jobject object) {
   return GetLastError();
+}
+
+jboolean JNICALL
+Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_FlushFileBuffersNative(
+    UNUSED JNIEnv *env, UNUSED jobject object, jlong handlePointer) {
+  return FlushFileBuffers((HANDLE)handlePointer);
 }
 
 jlong JNICALL

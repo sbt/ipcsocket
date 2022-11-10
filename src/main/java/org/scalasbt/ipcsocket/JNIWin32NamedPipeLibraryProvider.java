@@ -152,13 +152,6 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
   native long CreateEventNative(boolean bManualReset, boolean bInitialState, String lpName);
 
   @Override
-  public int WaitForSingleObject(Handle hHandle, int dwMilliseconds) {
-    return WaitForSingleObjectNative(getHandlePointer(hHandle), dwMilliseconds);
-  }
-
-  native int WaitForSingleObjectNative(long pointer, int dwMilliseconds);
-
-  @Override
   public native int GetLastError();
 
   @Override
@@ -171,6 +164,13 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
   @Override
   public void DeleteOverlapped(Overlapped overlapped) {
     DeleteOverlappedNative(getOverlappedPointer(overlapped));
+  }
+
+  native boolean FlushFileBuffersNative(long handle);
+
+  @Override
+  public boolean FlushFileBuffers(Handle handle) {
+    return FlushFileBuffersNative(getHandlePointer(handle));
   }
 
   native void DeleteOverlappedNative(long overlapped);
