@@ -56,9 +56,9 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNati
   if (!err || !security) {
     LPCWSTR name = (LPCWSTR)(*env)->GetStringChars(env, lpName, 0);
 
-    jlong handle = (jlong)(
-        CreateNamedPipeW(name, dwOpenMode, dwPipeMode, nMaxInstances,
-                         nOutBufferSize, nIntBufferSize, nDefaultTimeout, pSA));
+    jlong handle = (jlong)(CreateNamedPipeW(
+        name, dwOpenMode, dwPipeMode, nMaxInstances, nOutBufferSize,
+        nIntBufferSize, nDefaultTimeout, pSA));
     if (handle == (jlong)INVALID_HANDLE_VALUE) {
       char buf[512];
       FILL_ERROR(NULL, buf);
