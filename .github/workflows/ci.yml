@@ -1,8 +1,8 @@
 name: CI
-on: [ pull_request, push ]
+on: [pull_request, push]
 
 jobs:
-  linux-test:
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -10,88 +10,9 @@ jobs:
           - os: ubuntu-latest
             java: 8
             jobtype: 1
-    runs-on: ${{ matrix.os }}
-    env:
-      JAVA_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
-      JVM_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Setup
-      uses: olafurpg/setup-scala@v10
-      with:
-        java-version: "adopt@1.${{ matrix.java }}"
-    - name: Coursier cache
-      uses: coursier/cache-action@v6
-    - name: Build and test
-      shell: bash
-      run: |
-        sbt "jvmfmtCheckAll; clangfmtCheck; test"
-        rm -rf "$HOME/.ivy2/local" || true
-        find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
-        find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
-        find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
-        find $HOME/.sbt                              -name "*.lock"               -delete || true
-    - name: Archive native artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: dist-${{ runner.os }}
-        path: |
-          src/main/resources/linux/x86_64/libsbtipcsocket.so
-          src/main/resources/win32/x86_64/sbtipcsocket.dll
-    - name: Test examples compilation
-      shell: bash
-      run: |
-        cd examples/echo-server
-        mvn package
-
-  macos-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
           - os: macos-latest
             java: 8
             jobtype: 1
-    runs-on: ${{ matrix.os }}
-    env:
-      JAVA_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
-      JVM_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Setup
-      uses: olafurpg/setup-scala@v10
-      with:
-        java-version: "adopt@1.${{ matrix.java }}"
-    - name: Coursier cache
-      uses: coursier/cache-action@v6
-    - name: Build and test
-      shell: bash
-      run: |
-        sbt test
-        rm -rf "$HOME/.ivy2/local" || true
-        find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
-        find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
-        find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
-        find $HOME/.sbt                              -name "*.lock"               -delete || true
-    - name: Archive native artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: dist-${{ runner.os }}
-        path: src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
-    - name: Test examples compilation
-      shell: bash
-      run: |
-        cd examples/echo-server
-        mvn package
-
-
-  windows-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
           - os: windows-latest
             java: 8
             jobtype: 1
@@ -100,25 +21,43 @@ jobs:
       JAVA_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
       JVM_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Setup
-      uses: olafurpg/setup-scala@v10
-      with:
-        java-version: "adopt@1.${{ matrix.java }}"
-    - name: Coursier cache
-      uses: coursier/cache-action@v6
-    - name: Build and test
-      shell: bash
-      run: |
-        sbt test
-        rm -rf "$HOME/.ivy2/local" || true
-        find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
-        find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
-        find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
-        find $HOME/.sbt                              -name "*.lock"               -delete || true
-    - name: Test examples compilation
-      shell: bash
-      run: |
-        cd examples/echo-server
-        mvn package
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: "${{ matrix.java }}"
+          cache: sbt
+      - name: Build and test (Linux)
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          sbt "jvmfmtCheckAll; clangfmtCheck; test"
+      - name: Build and test (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        shell: bash
+        run: sbt test
+      - name: Build and test (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: bash
+        run: sbt test
+      - name: Archive native artifacts (Linux)
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist-${{ runner.os }}
+          path: |
+            src/main/resources/linux/x86_64/libsbtipcsocket.so
+            src/main/resources/win32/x86_64/sbtipcsocket.dll
+      - name: Archive native artifacts (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist-${{ runner.os }}
+          path: src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
+      - name: Test examples compilation
+        shell: bash
+        run: |
+          cd examples/echo-server
+          mvn package
