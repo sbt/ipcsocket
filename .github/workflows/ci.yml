@@ -34,6 +34,10 @@ jobs:
         uses: egor-tensin/setup-mingw@v2
         with:
           platform: x64
+      - name: Set up gcc-aarch64-linux-gnu
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: sudo apt-get -y install gcc-aarch64-linux-gnu
       - name: Build and test (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         shell: bash
@@ -54,6 +58,7 @@ jobs:
           name: dist-${{ runner.os }}
           path: |
             src/main/resources/linux/x86_64/libsbtipcsocket.so
+            src/main/resources/linux/aarch64/libsbtipcsocket.so
             src/main/resources/win32/x86_64/sbtipcsocket.dll
       - name: Archive native artifacts (macOS)
         if: ${{ matrix.os == 'macos-latest' }}

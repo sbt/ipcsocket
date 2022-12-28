@@ -20,9 +20,9 @@ val nativeIncludes = settingKey[Seq[String]]("The native include paths")
 val buildDarwin = taskKey[Path]("Build fat binary for x86_64 and arm64 on mac os")
 val buildDarwinX86_64 = taskKey[Path]("Build mac native library for x86_64")
 val buildDarwinArm64 = taskKey[Path]("Build mac native library for arm64")
-val buildLinux = taskKey[Path]("Build linux native library")
-val buildWin32 = taskKey[Path]("Build windows native library")
-val buildNativeArtifacts = taskKey[(Path, Path, Path)]("Build native artifacts")
+val buildLinuxX86_64 = taskKey[Path]("Build Linux native library for x86_64")
+val buildLinuxAarch64 = taskKey[Path]("Build Linux native library for Aarch64")
+val buildWin32X86_64 = taskKey[Path]("Build windows native library for x86_64")
 
 val isMac = scala.util.Properties.isMac
 val isWin = scala.util.Properties.isWin
@@ -44,8 +44,6 @@ buildDarwin := {
     fatBinary
   } else (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
 }
-
-buildDarwinArm64 / nativeArch := "arm64"
 
 inThisBuild(
   List(
@@ -92,19 +90,25 @@ crossPaths := false
 autoScalaLibrary := false
 nativeLibrarySettings("darwinX86_64")
 nativeLibrarySettings("darwinArm64")
-nativeLibrarySettings("linux")
-nativeLibrarySettings("win32")
-if (!isWin) (buildWin32 / nativeCompiler := "x86_64-w64-mingw32-gcc") :: Nil else Nil
-buildWin32 / skip := {
+nativeLibrarySettings("linuxX86_64")
+nativeLibrarySettings("linuxAarch64")
+nativeLibrarySettings("win32X86_64")
+if (!isWin) (buildWin32X86_64 / nativeCompiler := "x86_64-w64-mingw32-gcc") :: Nil else Nil
+buildLinuxAarch64 / nativeCompiler := "aarch64-linux-gnu-gcc"
+buildWin32X86_64 / skip := {
   val s = streams.value
-  Try(s"which ${(buildWin32 / nativeCompiler).value}".!!).fold(_ => {
-    s.log.warn(s"skipping buildWin32 because ${(buildWin32 / nativeCompiler).value} was not found")
+  Try(s"which ${(buildWin32X86_64 / nativeCompiler).value}".!!).fold(_ => {
+    s.log.warn(
+      s"skipping buildWin32X86_64 because ${(buildWin32X86_64 / nativeCompiler).value} was not found"
+    )
     true
   }, _.isEmpty)
 }
 Test / fork := true
 clangfmt / fileInputs += baseDirectory.value.toGlob / "jni" / "*.c"
-buildNativeArtifacts := (buildLinux.value, buildDarwin.value, buildWin32.value)
+commands += Command.command("buildNativeArtifacts") { state =>
+  "buildLinuxX86_64" :: "buildLinuxAarch64" :: "buildDarwin" :: "buildWin32X86_64" :: state
+}
 
 Global / javaHome := {
   System.getProperty("java.home") match {
@@ -117,9 +121,18 @@ Global / javaHome := {
 def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
   val key = TaskKey[Path](s"build${platform.head.toUpper}${platform.tail}")
   val shortPlatform =
-    if (platform.startsWith("darwin")) "darwin"
-    else platform
+    platform match {
+      case p if p.startsWith("darwin") => "darwin"
+      case p if p.startsWith("linux")  => "linux"
+      case p if p.startsWith("win32")  => "win32"
+    }
   Def.settings(
+    key / nativeArch := {
+      val orig = (key / nativeArch).value
+      if (platform.contains("Arm64")) "arm64"
+      else if (platform.contains("Aarch64")) "aarch64"
+      else orig
+    },
     key / nativeCompileOptions ++= (shortPlatform match {
       case "win32" =>
         Seq("-D__WIN__", "-lkernel32", "-ladvapi32", "-ffreestanding", "-fdiagnostics-color=always")
@@ -131,16 +144,17 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
       val resourceDir = (Compile / resourceDirectory).value.toPath
       val targetDir = (Compile / target).value.toPath
       val arch = (key / nativeArch).value
-      (if (shortPlatform == "darwin") targetDir else resourceDir) / platform / arch / name
+      if (shortPlatform == "darwin") targetDir / platform / arch / name
+      else resourceDir / shortPlatform / arch / name
     },
     key / fileInputs += {
-      val glob = if (platform == "win32") "*Win*.{c,h}" else "*Unix*.{c,h}"
+      val glob = if (shortPlatform == "win32") "*Win*.{c,h}" else "*Unix*.{c,h}"
       baseDirectory.value.toGlob / "jni" / glob,
     },
     key / skip := ((ThisBuild / nativePlatform).value match {
-      case `platform`               => false
-      case p if platform == "win32" => false
-      case p                        => !platform.startsWith(p)
+      case `platform`                    => false
+      case p if shortPlatform == "win32" => false
+      case p                             => !platform.startsWith(p)
     }),
     key / nativeBuild := {
       val artifact = (key / nativeArtifact).value
