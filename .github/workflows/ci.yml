@@ -29,6 +29,11 @@ jobs:
           distribution: temurin
           java-version: "${{ matrix.java }}"
           cache: sbt
+      - name: Set up MinGW
+        if: ${{ matrix.os != 'macos-latest' }}
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
       - name: Build and test (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' }}
         shell: bash

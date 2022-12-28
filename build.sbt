@@ -43,7 +43,6 @@ buildDarwin := {
     fatBinary
   } else (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
 }
-buildDarwin / skip := Option(System.getenv.get("CI")).fold(false)(_ => true)
 
 buildDarwinArm64 / nativeArch := "arm64"
 
@@ -96,7 +95,11 @@ nativeLibrarySettings("linux")
 nativeLibrarySettings("win32")
 if (!isWin) (buildWin32 / nativeCompiler := "x86_64-w64-mingw32-gcc") :: Nil else Nil
 buildWin32 / skip := {
-  isWin || Try(s"which ${(buildWin32 / nativeCompiler).value}".!!).fold(_ => true, _.isEmpty)
+  val s = streams.value
+  Try(s"which ${(buildWin32 / nativeCompiler).value}".!!).fold(_ => {
+    s.log.warn(s"skipping buildWin32 because ${(buildWin32 / nativeCompiler).value} was not found")
+    true
+  }, _.isEmpty)
 }
 Test / fork := true
 Test / fullClasspath :=
@@ -113,7 +116,9 @@ Global / javaHome := {
 
 def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
   val key = TaskKey[Path](s"build${platform.head.toUpper}${platform.tail}")
-  val shortPlatform = if (platform.startsWith("darwin")) "darwin" else platform
+  val shortPlatform =
+    if (platform.startsWith("darwin")) "darwin"
+    else platform
   Def.settings(
     key / nativeCompileOptions ++= (shortPlatform match {
       case "win32" =>
@@ -132,9 +137,10 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
       val glob = if (platform == "win32") "*Win*.{c,h}" else "*Unix*.{c,h}"
       baseDirectory.value.toGlob / "jni" / glob,
     },
-    key / skip := isWin || ((ThisBuild / nativePlatform).value match {
-      case `platform` => false
-      case p          => p != "win32" && !platform.startsWith(p)
+    key / skip := ((ThisBuild / nativePlatform).value match {
+      case `platform`               => false
+      case p if platform == "win32" => false
+      case p                        => !platform.startsWith(p)
     }),
     key / nativeBuild := {
       val artifact = (key / nativeArtifact).value
@@ -145,11 +151,13 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
       val compiler = (key / nativeCompiler).value
       val logger = streams.value.log
       val includes = (key / nativeIncludes).value
-
+      val s = streams.value
+      s.log.info(s"""compiling ${inputs.mkString(", ")}""")
       if (key.inputFileChanges.hasChanges || !artifact.toFile.exists) {
         Files.createDirectories(artifact.getParent)
         eval(Seq(compiler, "-o", artifact.toString) ++ includes ++ options ++ inputs, logger)
       }
+      s.log.info(s"""done compiling $artifact""")
       artifact
     },
     key := {
