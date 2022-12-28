@@ -61,3 +61,9 @@ Extract each of these files and overwrite the existing library in the project's
 `src/main/resources` directory. Check in the overwritten libraries and push the
 changes in a new PR that updates the binaries. Once that PR is merged, it is
 safe to make a release off of that commit.
+
+```sh
+mv $HOME/Downloads/dist-Linux/win32/x86_64/sbtipcsocket.dll src/main/resources/win32/x86_64/sbtipcsocket.dll
+mv $HOME/Downloads/dist-Linux/linux/x86_64/libsbtipcsocket.so src/main/resources/linux/x86_64/libsbtipcsocket.so
+mv $HOME/Downloads/libsbtipcsocket.dylib src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
+```
