@@ -43,7 +43,6 @@ buildDarwin := {
     fatBinary
   } else (Compile / resourceDirectory).value.toPath / "darwin" / "x86_64" / platforms("darwin")
 }
-buildDarwin / skip := Option(System.getenv.get("CI")).fold(false)(_ => true)
 
 buildDarwinArm64 / nativeArch := "arm64"
 
