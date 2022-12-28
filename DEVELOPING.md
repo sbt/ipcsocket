@@ -32,14 +32,15 @@ sudo apt install mingw-w64
 ```
 There is a [chocolatey](https://chocolatey.org) package available for windows,
 but it requires more work to get the toolchain to work correctly with the sbt
-build. As of now, it is assumed that compiling on windows is possible, but has
-not been successfully been done by the author so further instructions for
-compiling on windows from a contributor would be welcome. For now, the building
-windows native library is verified to work on linux and mac. The
-`buildWin32` task is disabled on windows but can be re-enabled by setting:
+build.
+
+Once mingw-w64 is set up, run:
+
 ```
-buildWin32 / skip := false
+sbt buildNativeArtifacts
 ```
+
+to build the native artifacts. This is done automatically for the CI on Github Actions.
 
 #### Releasing
 

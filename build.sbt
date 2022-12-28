@@ -22,6 +22,7 @@ val buildDarwinX86_64 = taskKey[Path]("Build mac native library for x86_64")
 val buildDarwinArm64 = taskKey[Path]("Build mac native library for arm64")
 val buildLinux = taskKey[Path]("Build linux native library")
 val buildWin32 = taskKey[Path]("Build windows native library")
+val buildNativeArtifacts = taskKey[(Path, Path, Path)]("Build native artifacts")
 
 val isMac = scala.util.Properties.isMac
 val isWin = scala.util.Properties.isWin
@@ -102,9 +103,8 @@ buildWin32 / skip := {
   }, _.isEmpty)
 }
 Test / fork := true
-Test / fullClasspath :=
-  (Test / fullClasspath).dependsOn(buildDarwin, buildLinux, buildWin32).value
 clangfmt / fileInputs += baseDirectory.value.toGlob / "jni" / "*.c"
+buildNativeArtifacts := (buildLinux.value, buildDarwin.value, buildWin32.value)
 
 Global / javaHome := {
   System.getProperty("java.home") match {
