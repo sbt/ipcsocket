@@ -95,7 +95,7 @@ public interface Win32NamedPipeLibrary extends Library, WinNT {
       boolean bInitialState,
       String lpName);
 
-  int WaitForSingleObject(HANDLE hHandle, int dwMilliseconds);
+  boolean FlushFileBuffers(HANDLE hObject);
 
   int GetLastError();
 }

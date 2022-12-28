@@ -10,7 +10,6 @@ import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.platform.win32.WinNT.HANDLE;
 import com.sun.jna.platform.win32.WinBase.SECURITY_ATTRIBUTES;
 import com.sun.jna.platform.win32.WinBase.OVERLAPPED;
-import com.sun.jna.platform.win32.WinError;
 
 class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider {
   static final Win32NamedPipeLibrary delegate = Win32NamedPipeLibrary.INSTANCE;
@@ -200,11 +199,6 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
   }
 
   @Override
-  public int WaitForSingleObject(Handle hHandle, int dwMilliseconds) {
-    return delegate.WaitForSingleObject(getHandle(hHandle), dwMilliseconds);
-  }
-
-  @Override
   public int GetLastError() {
     return delegate.GetLastError();
   }
@@ -220,6 +214,10 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
 
   @Override
   public void DeleteOverlapped(Overlapped op) {}
+
+  public boolean FlushFileBuffers(Handle handle) {
+    return delegate.FlushFileBuffers(getHandle(handle));
+  }
 
   @Override
   public int ERROR_IO_PENDING() {

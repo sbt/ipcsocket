@@ -89,14 +89,6 @@ JNIEXPORT jlong JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProv
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
- * Method:    WaitForSingleObjectNative
- * Signature: (JI)I
- */
-JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_WaitForSingleObjectNative
-  (JNIEnv *, jobject, jlong, jint);
-
-/*
- * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
  * Method:    GetLastError
  * Signature: ()I
  */
@@ -109,6 +101,14 @@ JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvi
  * Signature: (J)J
  */
 JNIEXPORT jlong JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_NewOverlappedNative
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
+ * Method:    FlushFileBuffersNative
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_FlushFileBuffersNative
   (JNIEnv *, jobject, jlong);
 
 /*
