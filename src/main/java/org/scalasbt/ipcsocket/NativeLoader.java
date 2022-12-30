@@ -53,12 +53,16 @@ class NativeLoader {
       final boolean isLinux = os.startsWith("linux");
       final boolean isWindows = os.startsWith("windows");
       final boolean is64bit = System.getProperty("sun.arch.data.model", "64").equals("64");
+      String arch = System.getProperty("os.arch", "").toLowerCase();
+      if (arch.equals("amd64")) {
+        arch = "x86_64";
+      }
       if (is64bit && (isMac || isLinux || isWindows)) {
         final String extension = "." + (isMac ? "dylib" : isWindows ? "dll" : "so");
         final String libName = (isWindows ? "" : "lib") + "sbtipcsocket" + extension;
         final String prefix = isMac ? "darwin" : isLinux ? "linux" : "win32";
 
-        final String resource = prefix + "/x86_64/" + libName;
+        final String resource = prefix + "/" + arch + "/" + libName;
         final URL url = NativeLoader.class.getClassLoader().getResource(resource);
         if (url == null) throw new UnsatisfiedLinkError(resource + " not found on classpath");
         try {
