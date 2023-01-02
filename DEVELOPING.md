@@ -52,6 +52,7 @@ artifacts can be found under the Artifacts section as
 
 The dist-Linux.zip provides:
 * src/main/resources/linux/x86_64/libsbtipcsocket.so
+* src/main/resources/linux/aarch64/libsbtipcsocket.so
 * src/main/resources/win32/x86_64/sbtipcsocket.dll
 
 while the dist-macOS.zip provides:
@@ -65,5 +66,6 @@ safe to make a release off of that commit.
 ```sh
 mv $HOME/Downloads/dist-Linux/win32/x86_64/sbtipcsocket.dll src/main/resources/win32/x86_64/sbtipcsocket.dll
 mv $HOME/Downloads/dist-Linux/linux/x86_64/libsbtipcsocket.so src/main/resources/linux/x86_64/libsbtipcsocket.so
+mv $HOME/Downloads/dist-Linux/linux/aarch64/libsbtipcsocket.so src/main/resources/linux/aarch64/libsbtipcsocket.so
 mv $HOME/Downloads/libsbtipcsocket.dylib src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
 ```
