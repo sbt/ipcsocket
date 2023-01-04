@@ -57,6 +57,12 @@ class NativeLoader {
       if (arch.equals("amd64")) {
         arch = "x86_64";
       }
+      // https://github.com/sbt/sbt/issues/7117
+      // Currently only Linux has ARM-specific binary. The macOS binary is a universal binary,
+      // and Windows can potentially emulate x86.
+      if (isMac || isWindows) {
+        arch = "x86_64";
+      }
       if (is64bit && (isMac || isLinux || isWindows)) {
         final String extension = "." + (isMac ? "dylib" : isWindows ? "dll" : "so");
         final String libName = (isWindows ? "" : "lib") + "sbtipcsocket" + extension;
