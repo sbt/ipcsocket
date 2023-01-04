@@ -47,7 +47,6 @@ buildDarwin := {
 
 inThisBuild(
   List(
-    version := "1.4.1-SNAPSHOT",
     organization := "org.scala-sbt.ipcsocket",
     organizationName := "sbt",
     organizationHomepage := Some(url("http://scala-sbt.org/")),
