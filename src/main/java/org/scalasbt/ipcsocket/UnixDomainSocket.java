@@ -79,6 +79,10 @@ public class UnixDomainSocket extends Socket {
     this(fd, false);
   }
 
+  public String toString() {
+    return "UnixDomainSocket(path = " + this.path + ")";
+  }
+
   public InputStream getInputStream() {
     return is;
   }

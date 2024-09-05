@@ -113,4 +113,22 @@ public class SocketTest extends BaseSocketSetup {
           });
     }
   */
+
+  @Test
+  public void testToString() throws IOException, InterruptedException {
+    if (!isWin) {
+      withSocket(
+          sock -> {
+            System.out.println("SocketTest#testToString(" + Boolean.toString(useJNI()) + ")");
+            ServerSocket serverSocket = newServerSocket(sock);
+            Socket client = newClientSocket(sock);
+            try {
+              assertTrue(client.toString().startsWith("UnixDomainSocket(path ="));
+            } finally {
+              client.close();
+              serverSocket.close();
+            }
+          });
+    }
+  }
 }
