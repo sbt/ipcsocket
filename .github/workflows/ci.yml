@@ -65,7 +65,7 @@ jobs:
             src/main/resources/linux/aarch64/libsbtipcsocket.so
             src/main/resources/win32/x86_64/sbtipcsocket.dll
       - name: Archive native artifacts (macOS)
-        if: ${{ matrix.os == 'macos-12' }}
+        if: ${{ matrix.os == 'macos-13' }}
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ runner.os }}
