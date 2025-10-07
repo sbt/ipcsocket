@@ -221,3 +221,11 @@ def eval(cmd: Seq[String], logger: Logger): Unit = {
       s"'${cmd mkString " "}' exited with ${proc.exitValue}"
     )
 }
+
+Test / unmanagedSourceDirectories ++= {
+  if (scala.util.Properties.isJavaAtLeast("17")) {
+    Seq((Test / sourceDirectory).value / "java-17")
+  } else {
+    Nil
+  }
+}

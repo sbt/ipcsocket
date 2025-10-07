@@ -3,6 +3,7 @@ on: [pull_request, push]
 
 jobs:
   test:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +23,9 @@ jobs:
           - os: windows-latest
             java: 8
             jobtype: 1
+          - os: windows-latest
+            java: 25
+            jobtype: 2
     runs-on: ${{ matrix.os }}
     env:
       JAVA_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
