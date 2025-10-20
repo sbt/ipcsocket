@@ -7,7 +7,9 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,39 +22,38 @@ import java.util.function.Consumer;
 
 public class SocketTest extends BaseSocketSetup {
 
-  /* Uncomment when it works on Linux with useJNI true
-    @Test
-    public void testAssertEquals() throws IOException, InterruptedException {
-      withSocket(
-          sock -> {
-            System.out.println("SocketTest#testAssertEquals(" + Boolean.toString(useJNI()) + ")");
+  @Test
+  public void testAssertEquals() throws IOException, InterruptedException {
+    withSocket(
+        sock -> {
+          System.out.println("SocketTest#testAssertEquals(" + Boolean.toString(useJNI()) + ")");
 
-            ServerSocket serverSocket = newServerSocket(sock);
+          ServerSocketChannel serverSocket =
+              ServerSocketChannels.newServerSocketChannel(sock, useJNI());
 
-            CompletableFuture<Boolean> server =
-                CompletableFuture.supplyAsync(
-                    () -> {
-                      try {
-                        EchoServer echo = new EchoServer(serverSocket);
-                        echo.run();
-                      } catch (IOException e) {
-                      }
-                      return true;
-                    });
-            Thread.sleep(100);
-
-            Socket client = newClientSocket(sock.toString());
-            PrintWriter out = new PrintWriter(client.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-            out.println("hello");
-            String line = in.readLine();
-            client.close();
-            server.cancel(true);
-            serverSocket.close();
-            assertEquals("echo did not return the content", line, "hello");
-          });
-    }
-  */
+          CompletableFuture<Boolean> server =
+              CompletableFuture.supplyAsync(
+                  () -> {
+                    try {
+                      EchoServer echo = new EchoServer(serverSocket);
+                      echo.run();
+                    } catch (IOException e) {
+                      // e.printStackTrace();
+                    }
+                    return true;
+                  });
+          Thread.sleep(100);
+          SocketChannel client = SocketChannels.newSocketChannel(sock.toString(), useJNI());
+          System.out.println("client: " + client.toString());
+          client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
+          Thread.sleep(100);
+          String line = EchoServer.readLine(client);
+          client.close();
+          server.cancel(true);
+          serverSocket.close();
+          assertEquals("echo did not return the content", line, "hello");
+        });
+  }
 
   @Test
   public void throwIOExceptionOnMissingFile() throws IOException, InterruptedException {
