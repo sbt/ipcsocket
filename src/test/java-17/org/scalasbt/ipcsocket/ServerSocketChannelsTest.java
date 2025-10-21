@@ -9,6 +9,7 @@ import java.net.ServerSocket;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,31 +21,31 @@ import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 
-public class ServerSocketWrapperTest {
-  private ServerSocketWrapper serverSocket;
-  private SocketWrapper server;
+public class ServerSocketChannelsTest {
+  private ServerSocketChannel serverChannel;
+  private SocketChannel server;
   private SocketChannel client;
   private Path dir;
   private Path socketPath;
 
   @Before
   public void before() throws IOException, ReflectiveOperationException {
-    dir = Files.createTempDirectory(ServerSocketWrapperTest.class.getSimpleName());
+    dir = Files.createTempDirectory(ServerSocketChannelsTest.class.getSimpleName());
     socketPath = dir.resolve("socket");
     Files.deleteIfExists(socketPath);
     if (!Files.isDirectory(dir)) {
       Files.createDirectories(dir);
     }
-    serverSocket =
-        ServerSocketWrapper.newJdkUnixDomainSocket(socketPath.toFile().getAbsolutePath());
+    serverChannel =
+        ServerSocketChannels.newUnixDomainSocket(socketPath.toFile().getAbsolutePath(), true);
     client = SocketChannel.open(StandardProtocolFamily.UNIX);
     client.connect(UnixDomainSocketAddress.of(socketPath.toFile().getAbsolutePath()));
-    server = serverSocket.accept();
+    server = serverChannel.accept();
   }
 
   @After
   public void after() throws IOException {
-    serverSocket.close();
+    serverChannel.close();
     Files.deleteIfExists(socketPath);
     Files.deleteIfExists(dir);
   }
@@ -91,7 +92,10 @@ public class ServerSocketWrapperTest {
       intValues.forEach(
           x -> {
             try {
-              server.write(x);
+              ByteBuffer bs = ByteBuffer.allocate(1);
+              bs.put(Integer.valueOf(x).byteValue());
+              bs.rewind();
+              server.write(bs);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -106,7 +110,7 @@ public class ServerSocketWrapperTest {
   @Test
   public void writeByteArray() throws Throwable {
     try {
-      server.write(byteArray());
+      server.write(ByteBuffer.wrap(byteArray()));
     } finally {
       server.close();
     }
@@ -120,7 +124,10 @@ public class ServerSocketWrapperTest {
     final int length = 30;
     final byte[] array = byteArray();
     try {
-      server.write(array, offset, length);
+      ByteBuffer bs = ByteBuffer.allocate(30);
+      bs.put(array, offset, length);
+      bs.rewind();
+      server.write(bs);
     } finally {
       server.close();
     }
@@ -143,9 +150,11 @@ public class ServerSocketWrapperTest {
     final List<Integer> actual = new ArrayList<>();
     int res;
     do {
-      res = server.read();
+      ByteBuffer bs = ByteBuffer.allocate(1);
+      res = server.read(bs);
+      bs.rewind();
       if (res != -1) {
-        actual.add(res);
+        actual.add(bs.get(0) & 0xff);
       }
     } while (res != -1);
     final List<Integer> expect = intValues.stream().map(i -> i & 0xff).collect(Collectors.toList());
