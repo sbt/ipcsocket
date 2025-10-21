@@ -12,8 +12,11 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 public abstract class SocketChannels {
@@ -40,6 +43,53 @@ public abstract class SocketChannels {
       result = SocketChannels.fromSocket(new UnixDomainSocket(pathName, jni));
     }
     return result;
+  }
+
+  /** Utility function to read until newline. */
+  public static String readLine(SocketChannel channel) throws IOException {
+    int readBytes;
+    byte b;
+    final List<Byte> values = new ArrayList<>();
+    final int bufSize = 1;
+    final ByteBuffer buf = ByteBuffer.allocate(bufSize);
+    do {
+      buf.rewind();
+      readBytes = channel.read(buf);
+      if (readBytes == 1) {
+        b = buf.get(0);
+        values.add(b);
+      } else {
+        b = 0;
+      }
+    } while (readBytes > 0 && b != '\n');
+    ByteBuffer buf2 = ByteBuffer.allocate(values.size());
+    for (int i = 0; i < values.size(); i++) {
+      buf2.put(values.get(i));
+    }
+    return new String(buf2.array(), StandardCharsets.UTF_8).replace("\n", "").replace("\r", "");
+  }
+
+  /** Utility function to read what's in the channel. */
+  public static ByteBuffer readAll(SocketChannel channel) throws IOException {
+    int readBytes;
+    final List<Byte> values = new ArrayList<>();
+    final int bufSize = 1024 * 1024;
+    final ByteBuffer buf = ByteBuffer.allocate(bufSize);
+    do {
+      buf.rewind();
+      readBytes = channel.read(buf);
+      if (readBytes > 0) {
+        for (int i = 0; i < readBytes; i++) {
+          values.add(buf.get(i));
+        }
+      }
+    } while (readBytes == bufSize);
+    ByteBuffer buf2 = ByteBuffer.allocate(values.size());
+    for (int i = 0; i < values.size(); i++) {
+      buf2.put(values.get(i));
+    }
+    buf2.rewind();
+    return buf2;
   }
 
   static SocketChannel newJdkUnixDomainSocket(final String pathName)

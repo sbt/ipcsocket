@@ -47,7 +47,7 @@ public class SocketTest extends BaseSocketSetup {
           System.out.println("client: " + client.toString());
           client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
           Thread.sleep(100);
-          String line = EchoServer.readLine(client);
+          String line = SocketChannels.readLine(client);
           client.close();
           server.cancel(true);
           serverSocket.close();
