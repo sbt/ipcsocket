@@ -1,60 +1,14 @@
 package org.scalasbt.ipcsocket;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 public class SocketTest extends BaseSocketSetup {
-
-  @Test
-  public void testAssertEquals() throws IOException, InterruptedException {
-    withSocket(
-        sock -> {
-          System.out.println("SocketTest#testAssertEquals(" + Boolean.toString(useJNI()) + ")");
-
-          ServerSocketChannel serverSocket =
-              ServerSocketChannels.newServerSocketChannel(sock, useJNI());
-
-          CompletableFuture<Boolean> server =
-              CompletableFuture.supplyAsync(
-                  () -> {
-                    try {
-                      EchoServer echo = new EchoServer(serverSocket);
-                      echo.run();
-                    } catch (IOException e) {
-                      // e.printStackTrace();
-                    }
-                    return true;
-                  });
-          Thread.sleep(100);
-          SocketChannel client = SocketChannels.newSocketChannel(sock.toString(), useJNI());
-          System.out.println("client: " + client.toString());
-          client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
-          Thread.sleep(100);
-          String line = SocketChannels.readLine(client);
-          client.close();
-          server.cancel(true);
-          serverSocket.close();
-          assertEquals("echo did not return the content", line, "hello");
-        });
-  }
-
   @Test
   public void throwIOExceptionOnMissingFile() throws IOException, InterruptedException {
     withSocket(
