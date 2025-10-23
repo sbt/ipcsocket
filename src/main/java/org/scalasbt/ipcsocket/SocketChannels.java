@@ -53,6 +53,11 @@ public abstract class SocketChannels {
     return result;
   }
 
+  /** Utility function to read until newline from a blocking channel. */
+  public static String readLine(SocketChannel channel) throws IOException {
+    return readLine(channel, 0);
+  }
+
   /** Utility function to read until newline from a non-blocking channel. */
   public static String readLine(SocketChannel channel, int readTimeoutMilis) throws IOException {
     int readBytes;
@@ -65,8 +70,10 @@ public abstract class SocketChannels {
         buf.rewind();
         int numOfKeys = -1;
         if (isJava17Plus() && !ServerSocketChannels.isWin) {
-          channel.register(sel, SelectionKey.OP_READ);
-          numOfKeys = sel.select(readTimeoutMilis);
+          if (!channel.isBlocking()) {
+            channel.register(sel, SelectionKey.OP_READ);
+            numOfKeys = sel.select(readTimeoutMilis);
+          }
         } else {
           if (readTimeoutMilis > 0) {
             throw new IOException("timeout is unsupported on JDK 8");
@@ -96,6 +103,11 @@ public abstract class SocketChannels {
     return new String(buf2.array(), StandardCharsets.UTF_8).replace("\n", "").replace("\r", "");
   }
 
+  /** Utility function to read all buffer from a blocking channel. */
+  public static ByteBuffer readAll(SocketChannel channel) throws IOException {
+    return readAll(channel, 0);
+  }
+
   /** Utility function to read all buffer from a non-blocking channel. */
   public static ByteBuffer readAll(SocketChannel channel, int readTimeoutMilis) throws IOException {
     int readBytes;
@@ -107,8 +119,10 @@ public abstract class SocketChannels {
         buf.rewind();
         int numOfKeys = -1;
         if (isJava17Plus() && !ServerSocketChannels.isWin) {
-          channel.register(sel, SelectionKey.OP_READ);
-          numOfKeys = sel.select(readTimeoutMilis);
+          if (!channel.isBlocking()) {
+            channel.register(sel, SelectionKey.OP_READ);
+            numOfKeys = sel.select(readTimeoutMilis);
+          }
         } else {
           if (readTimeoutMilis > 0) {
             throw new IOException("timeout is unsupported on JDK 8");
