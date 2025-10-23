@@ -119,6 +119,21 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_DisconnectNamedPipe
   return DisconnectNamedPipe((HANDLE)handlePointer);
 }
 
+jlong JNICALL
+Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_PeekNamedPipeNative(
+    UNUSED JNIEnv *env, UNUSED jobject object, jlong handlePointer) {
+  DWORD n = 0;
+  BOOL immediate = PeekNamedPipe((HANDLE)handlePointer, NULL, 0, NULL, &n, NULL);
+  if (!immediate) {
+    if (GetLastError() != ERROR_IO_PENDING) {
+      char buf[256];
+      FILL_ERROR("PeekNamedPipe() failed: %s (error code %ld)", buf);
+      THROW_IO(NULL, buf);
+    }
+  }
+  return (jlong) n;
+}
+
 jint JNICALL
 Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_readNative(
     JNIEnv *env, UNUSED jobject object, jlong waitable, jlong hFile,

@@ -28,6 +28,7 @@ public class NonBlockingEchoServer {
                 final String line =
                     new String(inBytes.array(), "UTF-8").replace("\n", "").replace("\r", "");
                 System.out.println("server: " + line);
+                Thread.sleep(500);
                 clientChannel.write(inBytes);
               } catch (SocketTimeoutException e) {
                 // if readAll doesn't complete in READ_TIMEOUT_MILI,
@@ -37,6 +38,7 @@ public class NonBlockingEchoServer {
               }
             } catch (IOException e) {
               e.printStackTrace();
+            } catch (InterruptedException e) {
             }
             return true;
           });

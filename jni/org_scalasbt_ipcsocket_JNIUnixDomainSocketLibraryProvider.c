@@ -3,6 +3,8 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include "sys/ioctl.h"
+#include "sys/poll.h"
 #include "sys/socket.h"
 #include "sys/types.h"
 #include "sys/un.h"
@@ -133,4 +135,28 @@ Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_maxSocketLength(
     UNUSED JNIEnv *env, UNUSED jobject object) {
   struct sockaddr_un un;
   return sizeof(un.sun_path);
+}
+
+jint JNICALL
+Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_availableNative(
+    UNUSED JNIEnv *env, UNUSED jclass clazz, jint fd) {
+  int n = 0;
+  ioctl(fd, FIONREAD, &n);
+  return n;
+}
+
+jint JNICALL
+Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_pollReadNative(
+    UNUSED JNIEnv *env, UNUSED jclass clazz, jint fd, jint timeout) {
+  errno = 0;
+  struct pollfd p;
+  p.fd = fd;
+  p.events = POLLIN;
+  p.revents = 0;
+  THROW_ON_ERROR(poll(&p, 1, timeout));
+  if ((p.revents & POLLIN) != 0) {
+    return 1;
+  } else {
+    return 0;
+  }
 }

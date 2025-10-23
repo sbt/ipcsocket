@@ -123,6 +123,14 @@ public class UnixDomainSocket extends Socket {
   }
 
   private class UnixDomainSocketInputStream extends InputStream {
+    public int available() throws IOException {
+      try {
+        return provider.available(fd.acquire());
+      } catch (final NativeErrorException e) {
+        throw new IOException(e.getMessage(), e);
+      }
+    }
+
     public int read() throws IOException {
       byte[] buf = new byte[1];
       int result;

@@ -53,6 +53,30 @@ public abstract class SocketChannels {
     return result;
   }
 
+  /**
+   * This checks if the channel is available for reading. Currently this is only supported for JDK
+   * 17 Unix Domain Sockets only.
+   */
+  public static int available(SocketChannel channel) throws IOException {
+    if (isJava17Plus() && !ServerSocketChannels.isWin) {
+      if (channel.isBlocking()) {
+        throw new IOException("unsupported operation");
+      } else {
+        try (Selector sel = Selector.open()) {
+          channel.register(sel, SelectionKey.OP_READ);
+          final int numOfKeys = sel.selectNow();
+          if (numOfKeys == 0) {
+            return 0;
+          } else {
+            return 1;
+          }
+        }
+      }
+    } else {
+      return channel.socket().getInputStream().available();
+    }
+  }
+
   /** Utility function to read until newline from a blocking channel. */
   public static String readLine(SocketChannel channel) throws IOException {
     return readLine(channel, 0);
@@ -76,7 +100,7 @@ public abstract class SocketChannels {
           }
         } else {
           if (readTimeoutMilis > 0) {
-            throw new IOException("timeout is unsupported on JDK 8");
+            throw new IOException("timeout requires JDK 17 and non-Windows");
           }
           if (channel.supportedOptions().contains(SO_TIMEOUT)) {
             channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMilis));
@@ -125,7 +149,7 @@ public abstract class SocketChannels {
           }
         } else {
           if (readTimeoutMilis > 0) {
-            throw new IOException("timeout is unsupported on JDK 8");
+            throw new IOException("timeout requires JDK 17 and non-Windows");
           }
           // The following operation gets blocked on JDK 8
           // channel.register(sel, SelectionKey.OP_READ);

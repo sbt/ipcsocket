@@ -22,7 +22,7 @@ public class SocketChannelTest extends BaseSocketSetup {
     withSocket(
         sock -> {
           if (isJava17Plus() && !ServerSocketChannels.isWin) {
-            String line = nonBlockingEchoServerTest(sock, 100);
+            String line = nonBlockingEchoServerTest(sock, 100, 600);
             assertEquals("echo did not return the content", "hello", line);
           }
         });
@@ -35,8 +35,8 @@ public class SocketChannelTest extends BaseSocketSetup {
     withSocket(
         sock -> {
           if (isJava17Plus() && !ServerSocketChannels.isWin) {
-            String line = nonBlockingEchoServerTest(sock, 6000);
-            assertEquals("echo did not timeout", "<timeout>", line);
+            String line = nonBlockingEchoServerTest(sock, 6000, 600);
+            assertEquals("echo did not timeout", "<unavailable>", line);
           }
         });
   }
@@ -53,7 +53,7 @@ public class SocketChannelTest extends BaseSocketSetup {
         });
   }
 
-  private String nonBlockingEchoServerTest(String sock, int sleepBeforeSend)
+  private String nonBlockingEchoServerTest(String sock, int sleepBeforeSend, int sleepBeforeReceive)
       throws IOException, InterruptedException {
     ServerSocketChannel serverSocket = ServerSocketChannels.newServerSocketChannel(sock, useJNI());
     CompletableFuture<Boolean> server =
@@ -75,10 +75,23 @@ public class SocketChannelTest extends BaseSocketSetup {
     Thread.sleep(100);
     client.configureBlocking(false);
     String line;
-    try {
-      line = SocketChannels.readLine(client, 500);
-    } catch (SocketTimeoutException e) {
-      line = "<timeout>";
+    int ready = 0;
+    ready = SocketChannels.available(client);
+    System.out.println("client: " + Integer.toString(ready) + " bytes ready");
+    Thread.sleep(100);
+    ready = SocketChannels.available(client);
+    System.out.println("client: " + Integer.toString(ready) + " bytes ready");
+    Thread.sleep(sleepBeforeReceive);
+    ready = SocketChannels.available(client);
+    System.out.println("client: " + Integer.toString(ready) + " bytes ready");
+    if (ready > 0) {
+      try {
+        line = SocketChannels.readLine(client, 1000);
+      } catch (SocketTimeoutException e) {
+        line = "<timeout>";
+      }
+    } else {
+      line = "<unavailable>";
     }
     client.close();
     server.cancel(true);
@@ -104,7 +117,15 @@ public class SocketChannelTest extends BaseSocketSetup {
     System.out.println("client: " + client.toString());
     client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
     client.configureBlocking(false);
-    String line = SocketChannels.readLine(client);
+    Thread.sleep(600);
+    final int ready = SocketChannels.available(client);
+    System.out.println("client: " + Integer.toString(ready) + " bytes ready");
+    String line;
+    if (ready > 0) {
+      line = SocketChannels.readLine(client);
+    } else {
+      line = "<unavailable>";
+    }
     client.close();
     server.cancel(true);
     serverSocket.close();
