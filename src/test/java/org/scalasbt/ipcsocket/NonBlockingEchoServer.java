@@ -1,6 +1,5 @@
 package org.scalasbt.ipcsocket;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
@@ -8,15 +7,11 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.CompletableFuture;
 
-public class EchoServer {
-  static boolean isJava17Plus() {
-    return SocketChannels.isJava17Plus();
-  }
-
+public class NonBlockingEchoServer {
   private final ServerSocketChannel serverSocketChannel;
   private final int READ_TIMEOUT_MILI = 5000;
 
-  public EchoServer(ServerSocketChannel serverSocketChannel) {
+  public NonBlockingEchoServer(ServerSocketChannel serverSocketChannel) {
     this.serverSocketChannel = serverSocketChannel;
   }
 
@@ -29,15 +24,14 @@ public class EchoServer {
             try {
               clientChannel.configureBlocking(false);
               try {
-                ByteBuffer inBytes =
-                    SocketChannels.readAll(
-                        clientChannel,
-                        isJava17Plus() && !ServerSocketChannels.isWin ? READ_TIMEOUT_MILI : 0);
+                ByteBuffer inBytes = SocketChannels.readAll(clientChannel, READ_TIMEOUT_MILI);
                 final String line =
                     new String(inBytes.array(), "UTF-8").replace("\n", "").replace("\r", "");
                 System.out.println("server: " + line);
                 clientChannel.write(inBytes);
               } catch (SocketTimeoutException e) {
+                // if readAll doesn't complete in READ_TIMEOUT_MILI,
+                // SocketTimeoutException is thrown
                 System.out.println("server read timeout");
                 return false;
               }

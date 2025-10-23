@@ -14,36 +14,53 @@ public class SocketChannelTest extends BaseSocketSetup {
     return SocketChannels.isJava17Plus();
   }
 
+  /** Test the non-blocking echo server using JDK 17 Unix Domain Socket. */
   @Test
-  public void testEchoServer() throws IOException, InterruptedException {
-    System.out.println("SocketChannelTest#testEchoServer(" + Boolean.toString(useJNI()) + ")");
+  public void testNonBlockingEchoServer() throws IOException, InterruptedException {
+    System.out.println(
+        "SocketChannelTest#testNonBlockingEchoServer(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
-          String line = echoServerTest(sock, ServerSocketChannels.isWin ? 0 : 100);
-          assertEquals("echo did not return the content", "hello", line);
+          if (isJava17Plus() && !ServerSocketChannels.isWin) {
+            String line = nonBlockingEchoServerTest(sock, 100);
+            assertEquals("echo did not return the content", "hello", line);
+          }
         });
   }
 
+  /** Test the non-blocking echo server using JDK 17 Unix Domain Socket. */
   @Test
   public void testTimeout() throws IOException, InterruptedException {
     System.out.println("SocketChannelTest#testTimeout(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
           if (isJava17Plus() && !ServerSocketChannels.isWin) {
-            String line = echoServerTest(sock, 6000);
+            String line = nonBlockingEchoServerTest(sock, 6000);
             assertEquals("echo did not timeout", "<timeout>", line);
           }
         });
   }
 
-  private String echoServerTest(String sock, int sleepBeforeSend)
+  /** Test the blocking echo server. */
+  @Test
+  public void testBlockingEchoServer() throws IOException, InterruptedException {
+    System.out.println(
+        "SocketChannelTest#testBlockingEchoServer(" + Boolean.toString(useJNI()) + ")");
+    withSocket(
+        sock -> {
+          String line = blockingEchoServerTest(sock);
+          assertEquals("echo did not return the content", "hello", line);
+        });
+  }
+
+  private String nonBlockingEchoServerTest(String sock, int sleepBeforeSend)
       throws IOException, InterruptedException {
     ServerSocketChannel serverSocket = ServerSocketChannels.newServerSocketChannel(sock, useJNI());
     CompletableFuture<Boolean> server =
         CompletableFuture.supplyAsync(
             () -> {
               try {
-                EchoServer echo = new EchoServer(serverSocket);
+                NonBlockingEchoServer echo = new NonBlockingEchoServer(serverSocket);
                 echo.run();
               } catch (IOException e) {
                 // e.printStackTrace();
@@ -59,11 +76,35 @@ public class SocketChannelTest extends BaseSocketSetup {
     client.configureBlocking(false);
     String line;
     try {
-      line =
-          SocketChannels.readLine(client, isJava17Plus() && !ServerSocketChannels.isWin ? 500 : 0);
+      line = SocketChannels.readLine(client, 500);
     } catch (SocketTimeoutException e) {
       line = "<timeout>";
     }
+    client.close();
+    server.cancel(true);
+    serverSocket.close();
+    return line;
+  }
+
+  private String blockingEchoServerTest(String sock) throws IOException, InterruptedException {
+    ServerSocketChannel serverSocket = ServerSocketChannels.newServerSocketChannel(sock, useJNI());
+    CompletableFuture<Boolean> server =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                BlockingEchoServer echo = new BlockingEchoServer(serverSocket);
+                echo.run();
+              } catch (IOException e) {
+                // e.printStackTrace();
+              }
+              return true;
+            });
+    Thread.sleep(100);
+    SocketChannel client = SocketChannels.newSocketChannel(sock.toString(), useJNI());
+    System.out.println("client: " + client.toString());
+    client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
+    client.configureBlocking(false);
+    String line = SocketChannels.readLine(client);
     client.close();
     server.cancel(true);
     serverSocket.close();
