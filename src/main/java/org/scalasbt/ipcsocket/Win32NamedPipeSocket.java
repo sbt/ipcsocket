@@ -122,6 +122,11 @@ public class Win32NamedPipeSocket extends Socket {
     }
 
     @Override
+    public int available() throws IOException {
+      return (int) provider.PeekNamedPipe(this.handle);
+    }
+
+    @Override
     public int read() throws IOException {
       int result;
       byte[] b = new byte[1];

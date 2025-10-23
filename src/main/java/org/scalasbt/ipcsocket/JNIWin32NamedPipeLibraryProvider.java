@@ -177,6 +177,13 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
 
   native String getErrorMessage(int errorCode);
 
+  @Override
+  public long PeekNamedPipe(Handle handle) {
+    return PeekNamedPipeNative(getHandlePointer(handle));
+  }
+
+  native long PeekNamedPipeNative(long handle);
+
   // Constants:
   @Override
   public native int ERROR_IO_PENDING();

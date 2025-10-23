@@ -81,6 +81,22 @@ JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryPro
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider
+ * Method:    availableNative
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_availableNative
+  (JNIEnv *, jobject, jint);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider
+ * Method:    pollReadNative
+ * Signature: (II)I
+ */
+JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_pollReadNative
+  (JNIEnv *, jobject, jint, jint);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider
  * Method:    maxSocketLength
  * Signature: ()I
  */

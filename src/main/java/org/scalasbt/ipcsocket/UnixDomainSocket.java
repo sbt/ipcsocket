@@ -119,6 +119,17 @@ public class UnixDomainSocket extends Socket {
   }
 
   private class UnixDomainSocketInputStream extends InputStream {
+    public int available() throws IOException {
+      int socketFd = fd.acquire();
+      try {
+        return provider.available(socketFd);
+      } catch (final NativeErrorException e) {
+        throw new IOException(e.getMessage(), e);
+      } finally {
+        fd.release();
+      }
+    }
+
     public int read() throws IOException {
       byte[] buf = new byte[1];
       int result;

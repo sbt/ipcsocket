@@ -104,6 +104,20 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
   }
 
   @Override
+  public long PeekNamedPipe(Handle hFile) throws IOException {
+    HANDLE handle = getHandle(hFile);
+    IntByReference n = new IntByReference();
+    boolean immediate = delegate.PeekNamedPipe(handle, null, 0, null, n, null);
+    if (!immediate) {
+      int lastError = delegate.GetLastError();
+      if (lastError != WinError.ERROR_IO_PENDING) {
+        throw new IOException("ReadFile() failed: " + lastError);
+      }
+    }
+    return n.getValue();
+  }
+
+  @Override
   public int read(
       Handle waitable,
       Handle hFile,

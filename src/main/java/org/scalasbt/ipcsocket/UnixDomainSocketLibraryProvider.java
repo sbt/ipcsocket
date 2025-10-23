@@ -19,6 +19,8 @@ public interface UnixDomainSocketLibraryProvider {
 
   int shutdown(int fd, int how) throws NativeErrorException;
 
+  int available(int fd) throws NativeErrorException;
+
   int maxSocketLength();
 
   static UnixDomainSocketLibraryProvider get(boolean useJNI) {
