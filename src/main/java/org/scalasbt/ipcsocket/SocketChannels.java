@@ -6,9 +6,13 @@ import java.net.ProtocolFamily;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketOption;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.StandardProtocolFamily;
 import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
@@ -16,10 +20,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public abstract class SocketChannels {
+  static boolean isJava17Plus() {
+    return ServerSocketChannels.isJava17Plus();
+  }
 
   public static SocketChannel newSocketChannel(final String pathName, final boolean jni)
       throws IOException {
@@ -33,7 +41,7 @@ public abstract class SocketChannels {
   public static SocketChannel newUnixDomainSocket(final String pathName, final boolean jni)
       throws IOException {
     SocketChannel result;
-    if (ServerSocketChannels.isJava17Plus()) {
+    if (isJava17Plus()) {
       try {
         result = newJdkUnixDomainSocket(pathName);
       } catch (ReflectiveOperationException e) {
@@ -45,21 +53,40 @@ public abstract class SocketChannels {
     return result;
   }
 
-  /** Utility function to read until newline. */
-  public static String readLine(SocketChannel channel) throws IOException {
+  /** Utility function to read until newline from a non-blocking channel. */
+  public static String readLine(SocketChannel channel, int readTimeoutMilis) throws IOException {
     int readBytes;
     byte b;
     final List<Byte> values = new ArrayList<>();
     final int bufSize = 1;
     final ByteBuffer buf = ByteBuffer.allocate(bufSize);
     do {
-      buf.rewind();
-      readBytes = channel.read(buf);
-      if (readBytes == 1) {
-        b = buf.get(0);
-        values.add(b);
-      } else {
-        b = 0;
+      try (Selector sel = Selector.open()) {
+        buf.rewind();
+        int numOfKeys = -1;
+        if (isJava17Plus() && !ServerSocketChannels.isWin) {
+          channel.register(sel, SelectionKey.OP_READ);
+          numOfKeys = sel.select(readTimeoutMilis);
+        } else {
+          if (readTimeoutMilis > 0) {
+            throw new IOException("timeout is unsupported on JDK 8");
+          }
+          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMilis));
+          }
+        }
+        if (numOfKeys == 0) {
+          throw new SocketTimeoutException(
+              "readLine timed out after " + Integer.toString(readTimeoutMilis) + " msec");
+        } else {
+          readBytes = channel.read(buf);
+        }
+        if (readBytes == 1) {
+          b = buf.get(0);
+          values.add(b);
+        } else {
+          b = 0;
+        }
       }
     } while (readBytes > 0 && b != '\n');
     ByteBuffer buf2 = ByteBuffer.allocate(values.size());
@@ -69,18 +96,40 @@ public abstract class SocketChannels {
     return new String(buf2.array(), StandardCharsets.UTF_8).replace("\n", "").replace("\r", "");
   }
 
-  /** Utility function to read what's in the channel. */
-  public static ByteBuffer readAll(SocketChannel channel) throws IOException {
+  /** Utility function to read all buffer from a non-blocking channel. */
+  public static ByteBuffer readAll(SocketChannel channel, int readTimeoutMilis) throws IOException {
     int readBytes;
     final List<Byte> values = new ArrayList<>();
     final int bufSize = 1024 * 1024;
     final ByteBuffer buf = ByteBuffer.allocate(bufSize);
     do {
-      buf.rewind();
-      readBytes = channel.read(buf);
-      if (readBytes > 0) {
-        for (int i = 0; i < readBytes; i++) {
-          values.add(buf.get(i));
+      try (Selector sel = Selector.open()) {
+        buf.rewind();
+        int numOfKeys = -1;
+        if (isJava17Plus() && !ServerSocketChannels.isWin) {
+          channel.register(sel, SelectionKey.OP_READ);
+          numOfKeys = sel.select(readTimeoutMilis);
+        } else {
+          if (readTimeoutMilis > 0) {
+            throw new IOException("timeout is unsupported on JDK 8");
+          }
+          // The following operation gets blocked on JDK 8
+          // channel.register(sel, SelectionKey.OP_READ);
+          // numOfKeys = sel.select(readTimeoutMilis);
+          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMilis));
+          }
+        }
+        if (numOfKeys == 0) {
+          throw new SocketTimeoutException(
+              "readAll timed out after " + Integer.toString(readTimeoutMilis) + " msec");
+        } else {
+          readBytes = channel.read(buf);
+        }
+        if (readBytes > 0) {
+          for (int i = 0; i < readBytes; i++) {
+            values.add(buf.get(i));
+          }
         }
       }
     } while (readBytes == bufSize);
@@ -107,7 +156,7 @@ public abstract class SocketChannels {
     return new ForwardingSocketChannel(socket);
   }
 
-  private static final class ForwardingSocketChannel extends SocketChannel {
+  static final class ForwardingSocketChannel extends SocketChannel {
     private final Socket socket;
 
     private ForwardingSocketChannel(Socket socket) {
@@ -203,11 +252,6 @@ public abstract class SocketChannels {
     }
 
     @Override
-    public final <A1> SocketChannel setOption(SocketOption<A1> name, A1 value) throws IOException {
-      return this;
-    }
-
-    @Override
     public final SocketChannel bind(SocketAddress local) throws IOException {
       this.socket.bind(local);
       return this;
@@ -223,12 +267,54 @@ public abstract class SocketChannels {
 
     @Override
     public final Set<SocketOption<?>> supportedOptions() {
-      return Collections.EMPTY_SET;
+      Set<SocketOption<?>> set = new HashSet();
+      set.add(SO_TIMEOUT);
+      return set;
     }
 
     @Override
-    public final <A1> A1 getOption(SocketOption<A1> name) {
+    public final <A1> A1 getOption(SocketOption<A1> name) throws SocketException {
+      if (name == SO_TIMEOUT) {
+        return (A1) Integer.valueOf(this.socket.getSoTimeout());
+      }
       return null;
+    }
+
+    @Override
+    public final <A1> SocketChannel setOption(SocketOption<A1> name, A1 value) throws IOException {
+      if (name == SO_TIMEOUT) {
+        Integer i = (Integer) value;
+        this.socket.setSoTimeout(i);
+      }
+      return this;
+    }
+  }
+
+  public static final SocketOption<Integer> SO_TIMEOUT =
+      new CustomSocketOption<Integer>("SO_TIMEOUT", Integer.class);
+
+  private static class CustomSocketOption<A1> implements SocketOption<A1> {
+    private final String name;
+    private final Class<A1> type;
+
+    CustomSocketOption(String name, Class<A1> type) {
+      this.name = name;
+      this.type = type;
+    }
+
+    @Override
+    public String name() {
+      return name;
+    }
+
+    @Override
+    public Class<A1> type() {
+      return type;
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 }
