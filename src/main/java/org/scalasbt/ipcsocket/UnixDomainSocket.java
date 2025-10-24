@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -137,7 +138,7 @@ public class UnixDomainSocket extends Socket {
     public int read() throws IOException {
       byte[] buf = new byte[1];
       int result;
-      if (doRead(buf, 0, 1) == 0) {
+      if (doRead(buf, 0, 1, getSoTimeout()) == 0) {
         result = -1;
       } else {
         // Make sure to & with 0xFF to avoid sign extension
@@ -152,7 +153,7 @@ public class UnixDomainSocket extends Socket {
       }
       int socketFd = fd.acquire();
       try {
-        int result = doRead(b, off, len);
+        int result = doRead(b, off, len, getSoTimeout());
         if (result == 0) {
           try {
             provider.close(socketFd);
@@ -168,11 +169,16 @@ public class UnixDomainSocket extends Socket {
       }
     }
 
-    private int doRead(byte[] buf, int offset, int len) throws IOException {
+    private int doRead(byte[] buf, int offset, int len, int timeoutMillis) throws IOException {
       try {
         int fdToRead = fd.acquire();
         if (fdToRead == -1) {
           return -1;
+        }
+        if (timeoutMillis > 0) {
+          if (!provider.pollRead(fdToRead, timeoutMillis)) {
+            throw new SocketTimeoutException("read timed out");
+          }
         }
         return provider.read(fdToRead, buf, offset, len);
       } catch (NativeErrorException e) {
