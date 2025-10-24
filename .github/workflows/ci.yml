@@ -20,6 +20,9 @@ jobs:
           - os: macos-14
             java: 8
             jobtype: 1
+          - os: macos-14
+            java: 25
+            jobtype: 1
           - os: windows-latest
             java: 8
             jobtype: 1

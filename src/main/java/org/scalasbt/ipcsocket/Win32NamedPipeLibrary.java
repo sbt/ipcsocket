@@ -97,5 +97,13 @@ public interface Win32NamedPipeLibrary extends Library, WinNT {
 
   boolean FlushFileBuffers(HANDLE hObject);
 
+  boolean PeekNamedPipe(
+      HANDLE hFile,
+      Memory lpBuffer,
+      int nBufferSize,
+      IntByReference lpBytesRead,
+      IntByReference lpTotalBytesAvail,
+      IntByReference lpBytesLeftThisMessage);
+
   int GetLastError();
 }

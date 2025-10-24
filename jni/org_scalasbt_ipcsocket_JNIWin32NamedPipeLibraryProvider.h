@@ -129,6 +129,14 @@ JNIEXPORT jstring JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryPr
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
+ * Method:    PeekNamedPipeNative
+ * Signature: (J)J
+ */
+JNIEXPORT jlong JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_PeekNamedPipeNative
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
  * Method:    ERROR_IO_PENDING
  * Signature: ()I
  */

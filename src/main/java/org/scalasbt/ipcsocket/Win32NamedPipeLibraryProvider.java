@@ -49,6 +49,8 @@ interface Win32NamedPipeLibraryProvider {
 
   boolean FlushFileBuffers(Handle handle);
 
+  long PeekNamedPipe(Handle handle) throws IOException;
+
   // Constants:
   int ERROR_IO_PENDING();
 
