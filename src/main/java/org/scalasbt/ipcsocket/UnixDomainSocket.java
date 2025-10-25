@@ -124,10 +124,13 @@ public class UnixDomainSocket extends Socket {
 
   private class UnixDomainSocketInputStream extends InputStream {
     public int available() throws IOException {
+      int socketFd = fd.acquire();
       try {
-        return provider.available(fd.acquire());
+        return provider.available(socketFd);
       } catch (final NativeErrorException e) {
         throw new IOException(e.getMessage(), e);
+      } finally {
+        fd.release();
       }
     }
 
@@ -147,17 +150,22 @@ public class UnixDomainSocket extends Socket {
       if (len == 0) {
         return 0;
       }
-      int result = doRead(b, off, len);
-      if (result == 0) {
-        try {
-          provider.close(fd.acquire());
-        } catch (final NativeErrorException e) {
-          throw new IOException(
-              "Error closing " + fd.acquire() + (path == null ? "" : " for " + path));
+      int socketFd = fd.acquire();
+      try {
+        int result = doRead(b, off, len);
+        if (result == 0) {
+          try {
+            provider.close(socketFd);
+          } catch (final NativeErrorException e) {
+            throw new IOException(
+                "Error closing " + socketFd + (path == null ? "" : " for " + path));
+          }
+          result = -1;
         }
-        result = -1;
+        return result;
+      } finally {
+        fd.release();
       }
-      return result;
     }
 
     private int doRead(byte[] buf, int offset, int len) throws IOException {
