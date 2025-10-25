@@ -114,14 +114,20 @@ public class SocketChannelTest extends BaseSocketSetup {
             });
     Thread.sleep(100);
     SocketChannel client = SocketChannels.newSocketChannel(sock.toString(), useJNI());
+    client.configureBlocking(false);
     System.out.println("client: " + client.toString());
     client.write(ByteBuffer.wrap("hello\n".getBytes("UTF-8")));
-    client.configureBlocking(false);
     Thread.sleep(600);
-    final int ready = SocketChannels.available(client);
-    System.out.println("client: " + Integer.toString(ready) + " bytes ready");
+    int readyBytes = 0;
+    int attempt = 0;
+    while (readyBytes <= 0 && attempt <= 4) {
+      readyBytes = SocketChannels.available(client);
+      System.out.println("client: " + Integer.toString(readyBytes) + " bytes ready");
+      Thread.sleep(500);
+      attempt++;
+    }
     String line;
-    if (ready > 0) {
+    if (readyBytes > 0) {
       line = SocketChannels.readLine(client);
     } else {
       line = "<unavailable>";

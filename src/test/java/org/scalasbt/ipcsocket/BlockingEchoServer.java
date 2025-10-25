@@ -26,7 +26,7 @@ public class BlockingEchoServer {
                   new String(inBytes.array(), "UTF-8").replace("\n", "").replace("\r", "");
               System.out.println("server: " + line);
               Thread.sleep(500);
-              clientChannel.write(inBytes);
+              clientChannel.write(inBytes.duplicate());
             } catch (IOException e) {
               e.printStackTrace();
             } catch (InterruptedException e) {
