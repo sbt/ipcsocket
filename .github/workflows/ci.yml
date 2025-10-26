@@ -7,7 +7,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
+          # Changing this will change glibc
+          - os: ubuntu-22.04
             java: 8
             jobtype: 1
           - os: ubuntu-24.04
