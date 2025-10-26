@@ -5,7 +5,7 @@ import java.net.Socket;
 import java.util.Random;
 import java.util.Scanner;
 
-public class Receiver implements Runnable {
+public class Receiver implements Runnable, AutoCloseable {
 
   private final String name;
   private final Socket socket;
@@ -30,5 +30,10 @@ public class Receiver implements Runnable {
     } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
+  }
+
+  @Override
+  public void close() throws IOException {
+    this.socket.close();
   }
 }
