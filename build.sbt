@@ -105,6 +105,17 @@ buildWin32X86_64 / skip := {
   }, _.isEmpty)
 }
 Test / fork := true
+Test / testGrouping := {
+  val tests = (Test / definedTests).value
+  tests
+    .groupBy(_.name)
+    .map {
+      case (name, tests) =>
+        val options = ForkOptions()
+        new Tests.Group(name, tests, Tests.SubProcess(options))
+    }
+    .toSeq
+}
 clangfmt / fileInputs += baseDirectory.value.toGlob / "jni" / "*.c"
 commands += Command.command("buildNativeArtifacts") { state =>
   "buildLinuxX86_64" :: "buildLinuxAarch64" :: "buildDarwin" :: "buildWin32X86_64" :: state
