@@ -146,9 +146,9 @@ public abstract class SocketChannels {
             numOfKeys = sel.select(readTimeoutMillis);
           }
         } else {
-          if (readTimeoutMillis > 0) {
-            throw new IOException("timeout requires JDK 17 and non-Windows");
-          }
+          // if (readTimeoutMillis > 0) {
+          //   throw new IOException("timeout requires JDK 17 and non-Windows");
+          // }
           // The following operation gets blocked on JDK 8
           // channel.register(sel, SelectionKey.OP_READ);
           // numOfKeys = sel.select(readTimeoutMilis);
