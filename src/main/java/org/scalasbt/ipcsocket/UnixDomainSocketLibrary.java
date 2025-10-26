@@ -47,7 +47,7 @@ public class UnixDomainSocketLibrary {
   public static final int SHUT_RD = 0;
   public static final int SHUT_WR = 1;
 
-  public static final int POLL_IN = 1;
+  public static final int POLLIN = 1;
 
   public static final NativeLong FIONREAD = new NativeLong(0x4004667FL);
   public static final NativeLong FIONREAD_LINUX = new NativeLong(0x541BL);
@@ -259,19 +259,28 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
       UnixDomainSocketLibrary.ioctl(fd, op, len);
       return len.getValue();
     } catch (final LastErrorException e) {
-      try {
-        UnixDomainSocketLibrary.PollfdUn pollfd =
-            new UnixDomainSocketLibrary.PollfdUn(
-                fd, (short) UnixDomainSocketLibrary.POLL_IN, (short) 0);
-        UnixDomainSocketLibrary.poll(pollfd, 1, 0);
-        if ((((int) pollfd.revents) & UnixDomainSocketLibrary.POLL_IN) != 0) {
-          return 1;
-        } else {
-          return 0;
-        }
-      } catch (final LastErrorException e2) {
-        throw new NativeErrorException(e2.getErrorCode(), e2.getMessage());
+      if (pollRead(fd, 0)) {
+        return 1;
+      } else {
+        return 0;
       }
+    }
+  }
+
+  @Override
+  public boolean pollRead(int fd, int timeout) throws NativeErrorException {
+    try {
+      UnixDomainSocketLibrary.PollfdUn pollfd =
+          new UnixDomainSocketLibrary.PollfdUn(
+              fd, (short) UnixDomainSocketLibrary.POLLIN, (short) 0);
+      UnixDomainSocketLibrary.poll(pollfd, 1, timeout);
+      if ((((int) pollfd.revents) & UnixDomainSocketLibrary.POLLIN) != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (final LastErrorException e) {
+      throw new NativeErrorException(e.getErrorCode(), e.getMessage());
     }
   }
 

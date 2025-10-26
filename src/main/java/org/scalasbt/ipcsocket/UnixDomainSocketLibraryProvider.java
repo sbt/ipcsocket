@@ -21,6 +21,8 @@ public interface UnixDomainSocketLibraryProvider {
 
   int available(int fd) throws NativeErrorException;
 
+  boolean pollRead(int fd, int timeout) throws NativeErrorException;
+
   int maxSocketLength();
 
   static UnixDomainSocketLibraryProvider get(boolean useJNI) {

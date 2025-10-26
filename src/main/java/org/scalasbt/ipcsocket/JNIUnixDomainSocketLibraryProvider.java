@@ -53,6 +53,18 @@ class JNIUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
     }
   }
 
+  public boolean pollRead(int fd, int timeout) throws NativeErrorException {
+    int result = pollReadNative(fd, timeout);
+    if (result == 0) {
+      return false;
+    } else if (result > 0) {
+      return true;
+    } else {
+      returnOrThrow(result, 0);
+      return false;
+    }
+  }
+
   private int returnOrThrow(int result, int threshold) throws NativeErrorException {
     if (result < threshold) {
       final String message = "Error " + (-result) + ": " + errString(-result);

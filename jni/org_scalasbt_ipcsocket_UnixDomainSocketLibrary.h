@@ -17,8 +17,8 @@ extern "C" {
 #define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_RD 0L
 #undef org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_WR
 #define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_WR 1L
-#undef org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLL_IN
-#define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLL_IN 1L
+#undef org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLLIN
+#define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLLIN 1L
 /*
  * Class:     org_scalasbt_ipcsocket_UnixDomainSocketLibrary
  * Method:    socket
