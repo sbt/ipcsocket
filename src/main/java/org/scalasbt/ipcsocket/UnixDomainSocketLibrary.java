@@ -90,8 +90,16 @@ public class UnixDomainSocketLibrary {
     public SunFamily sunFamily = new SunFamily();
     public byte[] sunPath = new byte[104];
 
+    static synchronized SockaddrUn of() {
+      return new SockaddrUn();
+    }
+
+    static synchronized SockaddrUn of(String path) throws IOException {
+      return new SockaddrUn(path);
+    }
+
     /** Constructs an empty {@code struct sockaddr_un}. */
-    public SockaddrUn() {
+    private SockaddrUn() {
       if (HAS_SUN_LEN) {
         sunFamily.sunLenAndFamily = new SunLenAndFamily();
         sunFamily.setType(SunLenAndFamily.class);
@@ -105,7 +113,7 @@ public class UnixDomainSocketLibrary {
      * Constructs a {@code struct sockaddr_un} with a path whose bytes are encoded using the default
      * encoding of the platform.
      */
-    public SockaddrUn(String path) throws IOException {
+    private SockaddrUn(String path) throws IOException {
       byte[] pathBytes = path.getBytes();
       if (pathBytes.length > sunPath.length - 1) {
         throw new IOException(
@@ -200,7 +208,7 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   public int bind(int fd, byte[] address, int addressLen) throws NativeErrorException {
     try {
       final UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new UnixDomainSocketLibrary.SockaddrUn(new String(address));
+          UnixDomainSocketLibrary.SockaddrUn.of(new String(address));
       return UnixDomainSocketLibrary.bind(fd, sockaddrUn, sockaddrUn.size());
     } catch (final LastErrorException e) {
       throw new NativeErrorException(e.getErrorCode(), e.getMessage());
@@ -212,8 +220,7 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   @Override
   public int listen(int fd, int backlog) throws NativeErrorException {
     try {
-      final UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new UnixDomainSocketLibrary.SockaddrUn();
+      final UnixDomainSocketLibrary.SockaddrUn sockaddrUn = UnixDomainSocketLibrary.SockaddrUn.of();
       return UnixDomainSocketLibrary.listen(fd, backlog);
     } catch (final LastErrorException e) {
       throw new NativeErrorException(e.getErrorCode(), e.getMessage());
@@ -223,8 +230,7 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   @Override
   public int accept(int fd) throws NativeErrorException {
     try {
-      final UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new UnixDomainSocketLibrary.SockaddrUn();
+      final UnixDomainSocketLibrary.SockaddrUn sockaddrUn = UnixDomainSocketLibrary.SockaddrUn.of();
       IntByReference addressLen = new IntByReference();
       addressLen.setValue(sockaddrUn.size());
       return UnixDomainSocketLibrary.accept(fd, sockaddrUn, addressLen);
@@ -237,7 +243,7 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   public int connect(int fd, byte[] address, int len) throws NativeErrorException {
     try {
       final UnixDomainSocketLibrary.SockaddrUn sockaddrUn =
-          new UnixDomainSocketLibrary.SockaddrUn(new String(address));
+          UnixDomainSocketLibrary.SockaddrUn.of(new String(address));
       return UnixDomainSocketLibrary.connect(fd, sockaddrUn, sockaddrUn.size());
     } catch (final LastErrorException e) {
       throw new NativeErrorException(e.getErrorCode(), e.getMessage());
@@ -336,6 +342,6 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
 
   @Override
   public int maxSocketLength() {
-    return new UnixDomainSocketLibrary.SockaddrUn().sunPath.length;
+    return UnixDomainSocketLibrary.SockaddrUn.of().sunPath.length;
   }
 }
