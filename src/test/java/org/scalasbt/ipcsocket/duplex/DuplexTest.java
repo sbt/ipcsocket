@@ -17,22 +17,30 @@ public class DuplexTest extends BaseSocketSetup {
           // start server
           int serverSendMessages = 15;
           DuplexServer server = new DuplexServer(socketName, serverSendMessages);
-          pool.execute(() -> server.startAndAwait());
+          try {
+            pool.execute(() -> server.startAndAwait());
 
-          // wait for pipe to be instantiated
-          Thread.sleep(2000);
+            // wait for pipe to be instantiated
+            Thread.sleep(2000);
 
-          // start client
-          int clientSendMessages = 7;
-          DuplexClient client = new DuplexClient(socketName, clientSendMessages);
-          pool.execute(() -> client.startAndAwait());
+            // start client
+            int clientSendMessages = 7;
+            DuplexClient client = new DuplexClient(socketName, clientSendMessages);
+            try {
+              pool.execute(() -> client.startAndAwait());
 
-          // wait client and server to terminate
-          Thread.sleep((Math.max(serverSendMessages, clientSendMessages) + 3) * 1000);
+              // wait client and server to terminate
+              Thread.sleep((Math.max(serverSendMessages, clientSendMessages) + 5) * 1000);
+
+              assertEquals(serverSendMessages, client.receiver.receivedMessages);
+              assertEquals(clientSendMessages, server.receiver.receivedMessages);
+            } finally {
+              client.close();
+            }
+          } finally {
+            server.close();
+          }
           pool.shutdown();
-
-          assertEquals(serverSendMessages, client.receiver.receivedMessages);
-          assertEquals(clientSendMessages, server.receiver.receivedMessages);
         });
   }
 }

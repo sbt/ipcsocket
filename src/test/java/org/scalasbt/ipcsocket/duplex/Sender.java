@@ -5,7 +5,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Random;
 
-public class Sender implements Runnable {
+public class Sender implements Runnable, AutoCloseable {
 
   private final String name;
   private final Socket socket;
@@ -30,5 +30,10 @@ public class Sender implements Runnable {
     } catch (IOException | InterruptedException e) {
       e.printStackTrace();
     }
+  }
+
+  @Override
+  public void close() throws IOException {
+    this.socket.close();
   }
 }

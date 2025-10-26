@@ -6,7 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import org.scalasbt.ipcsocket.BaseSocketSetup;
 
-public class DuplexClient extends BaseSocketSetup {
+public class DuplexClient extends BaseSocketSetup implements AutoCloseable {
 
   private final String pipeName;
   private final int sendMessages;
@@ -33,5 +33,10 @@ public class DuplexClient extends BaseSocketSetup {
     } catch (InterruptedException | IOException e) {
       e.printStackTrace();
     }
+  }
+
+  public void close() throws IOException {
+    this.sender.close();
+    this.receiver.close();
   }
 }
