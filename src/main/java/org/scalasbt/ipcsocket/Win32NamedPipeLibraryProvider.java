@@ -27,7 +27,8 @@ interface Win32NamedPipeLibraryProvider {
       byte[] buffer,
       int offset,
       int len,
-      boolean requireStrictLength)
+      boolean requireStrictLength,
+      int timeoutMillis)
       throws IOException;
 
   void write(Handle waitable, Handle hFile, byte[] lpBuffer, int offset, int len)

@@ -18,6 +18,15 @@
       (*env)->ThrowNew(env, exClass, _buf);                                    \
     }                                                                          \
   } while (0);
+#define THROW_SOCKET_TIMEOUT(prefix, ...)                                       \
+  do {                                                                          \
+    char _buf[1024];                                                            \
+    snprintf(_buf, 1024, prefix ? prefix : "%s", __VA_ARGS__);                  \
+    jclass exClass = (*env)->FindClass(env, "java/net/SocketTimeoutException"); \
+    if (exClass != NULL) {                                                      \
+      (*env)->ThrowNew(env, exClass, _buf);                                     \
+    }                                                                           \
+  } while (0);
 
 #define FILL_ERROR(prefix, buf)                                                \
   do {                                                                         \
@@ -123,8 +132,8 @@ jlong JNICALL
 Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_PeekNamedPipeNative(
     UNUSED JNIEnv *env, UNUSED jobject object, jlong handlePointer) {
   DWORD n = 0;
-  BOOL immediate = PeekNamedPipe((HANDLE)handlePointer, NULL, 0, NULL, &n, NULL);
-  if (!immediate) {
+  BOOL ok = PeekNamedPipe((HANDLE)handlePointer, NULL, 0, NULL, &n, NULL);
+  if (!ok) {
     if (GetLastError() != ERROR_IO_PENDING) {
       char buf[256];
       FILL_ERROR("PeekNamedPipe() failed: %s (error code %ld)", buf);
@@ -137,7 +146,8 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_PeekNamedPipeNative
 jint JNICALL
 Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_readNative(
     JNIEnv *env, UNUSED jobject object, jlong waitable, jlong hFile,
-    jbyteArray buffer, jint offset, jint length, jboolean strict) {
+    jbyteArray buffer, jint offset, jint length, jboolean strict,
+    jint timeoutMillis) {
   HANDLE handle = (HANDLE)hFile;
   OVERLAPPED olap = {0};
   olap.hEvent = (HANDLE)waitable;
@@ -151,8 +161,16 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_readNative(
       FILL_ERROR("ReadFile() failed: %s (error code %ld)", buf);
       THROW_IO(NULL, buf);
     }
+    if (timeoutMillis > 0) {
+      DWORD res = WaitForSingleObject(olap.hEvent, timeoutMillis);
+      if (res == WAIT_TIMEOUT) {
+        CancelIoEx(handle, NULL);
+        char buf[256];
+        FILL_ERROR("ReadFile() timed out: %s (error code %ld)", buf);
+        THROW_SOCKET_TIMEOUT(NULL, buf);
+      }
+    }
   }
-
   if (!GetOverlappedResult(handle, &olap, &bytes_read, TRUE)) {
     char buf[256];
     FILL_ERROR(

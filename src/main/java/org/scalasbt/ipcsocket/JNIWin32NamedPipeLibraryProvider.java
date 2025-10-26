@@ -97,7 +97,8 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       byte[] buffer,
       int offset,
       int len,
-      boolean requireStrictLength)
+      boolean requireStrictLength,
+      int timeoutMillis)
       throws IOException {
     return readNative(
         getHandlePointer(waitable),
@@ -105,11 +106,18 @@ class JNIWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
         buffer,
         offset,
         len,
-        requireStrictLength);
+        requireStrictLength,
+        timeoutMillis);
   }
 
   native int readNative(
-      long waitable, long hFile, byte[] buffer, int offset, int len, boolean requireStrictLength)
+      long waitable,
+      long hFile,
+      byte[] buffer,
+      int offset,
+      int len,
+      boolean requireStrictLength,
+      int timeoutMillis)
       throws IOException;
 
   @Override

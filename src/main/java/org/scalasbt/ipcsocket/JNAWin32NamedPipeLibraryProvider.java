@@ -1,6 +1,7 @@
 package org.scalasbt.ipcsocket;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 
 import com.sun.jna.*;
@@ -107,12 +108,10 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
   public long PeekNamedPipe(Handle hFile) throws IOException {
     HANDLE handle = getHandle(hFile);
     IntByReference n = new IntByReference();
-    boolean immediate = delegate.PeekNamedPipe(handle, null, 0, null, n, null);
-    if (!immediate) {
+    boolean ok = delegate.PeekNamedPipe(handle, null, 0, null, n, null);
+    if (!ok) {
       int lastError = delegate.GetLastError();
-      if (lastError != WinError.ERROR_IO_PENDING) {
-        throw new IOException("ReadFile() failed: " + lastError);
-      }
+      throw new IOException("PeekNamedPipe() failed: " + lastError);
     }
     return n.getValue();
   }
@@ -124,7 +123,8 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       byte[] buffer,
       int offset,
       int len,
-      boolean requireStrictLength)
+      boolean requireStrictLength,
+      int timeoutMillis)
       throws IOException {
     HANDLE readerWaitable = getHandle(waitable);
     HANDLE handle = getHandle(hFile);
@@ -140,8 +140,13 @@ class JNAWin32NamedPipeLibraryProvider implements Win32NamedPipeLibraryProvider 
       if (lastError != WinError.ERROR_IO_PENDING) {
         throw new IOException("ReadFile() failed: " + lastError);
       }
+      if (timeoutMillis > 0) {
+        int res = delegate.WaitForSingleObject(olap.hEvent, timeoutMillis);
+        if (res == WinError.WAIT_TIMEOUT) {
+          throw new SocketTimeoutException("ReadFile() timed out " + res);
+        }
+      }
     }
-
     IntByReference r = new IntByReference();
     if (!delegate.GetOverlappedResult(handle, olap.getPointer(), r, true)) {
       int lastError = delegate.GetLastError();

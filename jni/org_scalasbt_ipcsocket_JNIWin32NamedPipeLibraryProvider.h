@@ -42,10 +42,10 @@ JNIEXPORT jboolean JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryP
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
  * Method:    readNative
- * Signature: (JJ[BIIZ)I
+ * Signature: (JJ[BIIZI)I
  */
 JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_readNative
-  (JNIEnv *, jobject, jlong, jlong, jbyteArray, jint, jint, jboolean);
+  (JNIEnv *, jobject, jlong, jlong, jbyteArray, jint, jint, jboolean, jint);
 
 /*
  * Class:     org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider
