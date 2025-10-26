@@ -89,6 +89,8 @@ public interface Win32NamedPipeLibrary extends Library, WinNT {
 
   boolean CancelIoEx(HANDLE hObject, Pointer lpOverlapped);
 
+  int WaitForSingleObject(HANDLE hObject, int dwMilliseconds);
+
   HANDLE CreateEvent(
       SECURITY_ATTRIBUTES lpEventAttributes,
       boolean bManualReset,

@@ -140,7 +140,8 @@ public class Win32NamedPipeSocket extends Socket {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-      return provider.read(readerWaitable, handle, b, off, len, requireStrictLength);
+      return provider.read(
+          readerWaitable, handle, b, off, len, requireStrictLength, getSoTimeout());
     }
   }
 

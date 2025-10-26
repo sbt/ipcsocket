@@ -83,7 +83,7 @@ public abstract class SocketChannels {
   }
 
   /** Utility function to read until newline from a non-blocking channel. */
-  public static String readLine(SocketChannel channel, int readTimeoutMilis) throws IOException {
+  public static String readLine(SocketChannel channel, int readTimeoutMillis) throws IOException {
     int readBytes;
     byte b;
     final List<Byte> values = new ArrayList<>();
@@ -96,19 +96,22 @@ public abstract class SocketChannels {
         if (isJava17Plus() && !ServerSocketChannels.isWin) {
           if (!channel.isBlocking()) {
             channel.register(sel, SelectionKey.OP_READ);
-            numOfKeys = sel.select(readTimeoutMilis);
+            numOfKeys = sel.select(readTimeoutMillis);
           }
         } else {
-          if (readTimeoutMilis > 0) {
-            throw new IOException("timeout requires JDK 17 and non-Windows");
-          }
-          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
-            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMilis));
+          if (readTimeoutMillis > 0) {
+            if (ServerSocketChannels.isWin) {
+              if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+                channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
+              }
+            } else {
+              throw new IOException("timeout requires JDK 17 or Windows");
+            }
           }
         }
         if (numOfKeys == 0) {
           throw new SocketTimeoutException(
-              "readLine timed out after " + Integer.toString(readTimeoutMilis) + " msec");
+              "readLine timed out after " + Integer.toString(readTimeoutMillis) + " msec");
         } else {
           readBytes = channel.read(buf);
         }
@@ -133,7 +136,8 @@ public abstract class SocketChannels {
   }
 
   /** Utility function to read all buffer from a non-blocking channel. */
-  public static ByteBuffer readAll(SocketChannel channel, int readTimeoutMilis) throws IOException {
+  public static ByteBuffer readAll(SocketChannel channel, int readTimeoutMillis)
+      throws IOException {
     int readBytes;
     final List<Byte> values = new ArrayList<>();
     final int bufSize = 1024 * 1024;
@@ -145,22 +149,25 @@ public abstract class SocketChannels {
         if (isJava17Plus() && !ServerSocketChannels.isWin) {
           if (!channel.isBlocking()) {
             channel.register(sel, SelectionKey.OP_READ);
-            numOfKeys = sel.select(readTimeoutMilis);
+            numOfKeys = sel.select(readTimeoutMillis);
           }
         } else {
-          if (readTimeoutMilis > 0) {
-            throw new IOException("timeout requires JDK 17 and non-Windows");
-          }
-          // The following operation gets blocked on JDK 8
-          // channel.register(sel, SelectionKey.OP_READ);
-          // numOfKeys = sel.select(readTimeoutMilis);
-          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
-            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMilis));
+          if (readTimeoutMillis > 0) {
+            // The following operation gets blocked on JDK 8
+            // channel.register(sel, SelectionKey.OP_READ);
+            // numOfKeys = sel.select(readTimeoutMillis);
+            if (ServerSocketChannels.isWin) {
+              if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+                channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
+              }
+            } else {
+              throw new IOException("timeout requires JDK 17 or Windows");
+            }
           }
         }
         if (numOfKeys == 0) {
           throw new SocketTimeoutException(
-              "readAll timed out after " + Integer.toString(readTimeoutMilis) + " msec");
+              "readAll timed out after " + Integer.toString(readTimeoutMillis) + " msec");
         } else {
           readBytes = channel.read(buf);
         }

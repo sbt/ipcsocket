@@ -21,7 +21,7 @@ public class SocketChannelTest extends BaseSocketSetup {
         "SocketChannelTest#testNonBlockingEchoServer(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
-          if (isJava17Plus() && !ServerSocketChannels.isWin) {
+          if (isJava17Plus() || ServerSocketChannels.isWin) {
             String line = nonBlockingEchoServerTest(sock, 100, 600);
             assertEquals("echo did not return the content", "hello", line);
           }
@@ -34,7 +34,7 @@ public class SocketChannelTest extends BaseSocketSetup {
     System.out.println("SocketChannelTest#testTimeout(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
-          if (isJava17Plus() && !ServerSocketChannels.isWin) {
+          if (isJava17Plus() || ServerSocketChannels.isWin) {
             String line = nonBlockingEchoServerTest(sock, 6000, 600);
             assertEquals("echo did not timeout", "<unavailable>", line);
           }
