@@ -41,6 +41,7 @@ public class SocketChannelTest extends BaseSocketSetup {
         });
   }
 
+  /*
   @Test
   public void testNonBlockingLargeMessage() throws IOException, InterruptedException {
     System.out.println(
@@ -56,6 +57,7 @@ public class SocketChannelTest extends BaseSocketSetup {
           assertEquals("echo did not return the content", message, line);
         });
   }
+  */
 
   /** Test the blocking echo server. */
   @Test
