@@ -64,7 +64,7 @@ jobs:
         run: sbt "buildNativeArtifacts; test"
       - name: Archive native artifacts (Linux)
         if: ${{ runner.os == 'Linux' && matrix.jobtype == '1' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ runner.os }}
           path: |
@@ -73,7 +73,7 @@ jobs:
             src/main/resources/win32/x86_64/sbtipcsocket.dll
       - name: Archive native artifacts (macOS)
         if: ${{ matrix.os == 'macos-13' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ runner.os }}
           path: src/main/resources/darwin/x86_64/libsbtipcsocket.dylib
