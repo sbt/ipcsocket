@@ -14,30 +14,26 @@ public class SocketChannelTest extends BaseSocketSetup {
     return SocketChannels.isJava17Plus();
   }
 
-  /** Test the non-blocking echo server using JDK 17 Unix Domain Socket. */
+  /** Test the non-blocking echo server. */
   @Test
   public void testNonBlockingEchoServer() throws IOException, InterruptedException {
     System.out.println(
         "SocketChannelTest#testNonBlockingEchoServer(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
-          if (isJava17Plus() || ServerSocketChannels.isWin) {
-            String line = nonBlockingEchoServerTest(sock, 100, 600);
-            assertEquals("echo did not return the content", "hello", line);
-          }
+          String line = nonBlockingEchoServerTest(sock, 100, 600);
+          assertEquals("echo did not return the content", "hello", line);
         });
   }
 
-  /** Test the non-blocking echo server using JDK 17 Unix Domain Socket. */
+  /** Test the non-blocking echo server. */
   @Test
   public void testTimeout() throws IOException, InterruptedException {
     System.out.println("SocketChannelTest#testTimeout(" + Boolean.toString(useJNI()) + ")");
     withSocket(
         sock -> {
-          if (isJava17Plus() || ServerSocketChannels.isWin) {
-            String line = nonBlockingEchoServerTest(sock, 6000, 600);
-            assertEquals("echo did not timeout", "<unavailable>", line);
-          }
+          String line = nonBlockingEchoServerTest(sock, 6000, 600);
+          assertEquals("echo did not timeout", "<unavailable>", line);
         });
   }
 

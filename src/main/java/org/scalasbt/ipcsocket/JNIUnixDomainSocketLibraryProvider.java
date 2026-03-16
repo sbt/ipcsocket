@@ -46,10 +46,12 @@ class JNIUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
 
   public int available(int fd) throws NativeErrorException {
     int result = availableNative(fd);
-    if (result < 0) {
-      return returnOrThrow(pollReadNative(fd, 0), 0);
+    if (result >= 0) {
+      return result;
+    } else if (pollRead(fd, 0)) {
+      return 1;
     } else {
-      return returnOrThrow(result, 0);
+      return 0;
     }
   }
 

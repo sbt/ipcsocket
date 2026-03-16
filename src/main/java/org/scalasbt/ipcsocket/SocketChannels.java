@@ -99,14 +99,8 @@ public abstract class SocketChannels {
             numOfKeys = sel.select(readTimeoutMillis);
           }
         } else {
-          if (readTimeoutMillis > 0) {
-            if (ServerSocketChannels.isWin) {
-              if (channel.supportedOptions().contains(SO_TIMEOUT)) {
-                channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
-              }
-            } else {
-              throw new IOException("timeout requires JDK 17 or Windows");
-            }
+          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
           }
         }
         if (numOfKeys == 0) {
@@ -152,17 +146,14 @@ public abstract class SocketChannels {
             numOfKeys = sel.select(readTimeoutMillis);
           }
         } else {
-          if (readTimeoutMillis > 0) {
-            // The following operation gets blocked on JDK 8
-            // channel.register(sel, SelectionKey.OP_READ);
-            // numOfKeys = sel.select(readTimeoutMillis);
-            if (ServerSocketChannels.isWin) {
-              if (channel.supportedOptions().contains(SO_TIMEOUT)) {
-                channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
-              }
-            } else {
-              throw new IOException("timeout requires JDK 17 or Windows");
-            }
+          // if (readTimeoutMillis > 0) {
+          //   throw new IOException("timeout requires JDK 17 and non-Windows");
+          // }
+          // The following operation gets blocked on JDK 8
+          // channel.register(sel, SelectionKey.OP_READ);
+          // numOfKeys = sel.select(readTimeoutMilis);
+          if (channel.supportedOptions().contains(SO_TIMEOUT)) {
+            channel.setOption(SO_TIMEOUT, Integer.valueOf(readTimeoutMillis));
           }
         }
         if (numOfKeys == 0) {
