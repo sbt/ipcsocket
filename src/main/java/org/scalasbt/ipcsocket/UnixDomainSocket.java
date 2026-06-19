@@ -137,7 +137,7 @@ public class UnixDomainSocket extends Socket {
     public int read() throws IOException {
       byte[] buf = new byte[1];
       int result;
-      if (doRead(buf, 0, 1) == 0) {
+      if (doRead(buf, 0, 1) <= 0) {
         result = -1;
       } else {
         // Make sure to & with 0xFF to avoid sign extension
