@@ -7,14 +7,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          # Changing this will change glibc
+          - os: ubuntu-22.04
             java: 8
             jobtype: 1
-          - os: macos-12
+          - os: ubuntu-24.04
+            java: 25
+            jobtype: 2
+          - os: macos-15-intel
             java: 8
             jobtype: 1
-          - os: macos-14
+          - os: macos-15
             java: 8
+            jobtype: 1
+          - os: macos-15
+            java: 25
             jobtype: 1
           - os: windows-latest
             java: 8
@@ -25,9 +32,9 @@ jobs:
       JVM_OPTS: -Xms800M -Xmx2G -Xss6M -XX:ReservedCodeCacheSize=128M -server -Dsbt.io.virtual=false -Dfile.encoding=UTF-8
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: "${{ matrix.java }}"
@@ -35,7 +42,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - name: Set up MinGW
         if: ${{ runner.os == 'Linux' }}
-        uses: egor-tensin/setup-mingw@v2
+        uses: egor-tensin/setup-mingw@v3
         with:
           platform: x64
       - name: Set up gcc-aarch64-linux-gnu
@@ -56,8 +63,8 @@ jobs:
         shell: bash
         run: sbt "buildNativeArtifacts; test"
       - name: Archive native artifacts (Linux)
-        if: ${{ runner.os == 'Linux' }}
-        uses: actions/upload-artifact@v4
+        if: ${{ runner.os == 'Linux' && matrix.jobtype == '1' }}
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ runner.os }}
           path: |
@@ -65,8 +72,8 @@ jobs:
             src/main/resources/linux/aarch64/libsbtipcsocket.so
             src/main/resources/win32/x86_64/sbtipcsocket.dll
       - name: Archive native artifacts (macOS)
-        if: ${{ matrix.os == 'macos-12' }}
-        uses: actions/upload-artifact@v4
+        if: ${{ matrix.os == 'macos-15-intel' }}
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ runner.os }}
           path: src/main/resources/darwin/x86_64/libsbtipcsocket.dylib

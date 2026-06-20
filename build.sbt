@@ -61,11 +61,12 @@ inThisBuild(
     ),
     isSnapshot := (isSnapshot or version(_ endsWith "-SNAPSHOT")).value,
     description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
-    licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
+    licenses := Seq(License.Apache2),
     publishTo := {
-      val nexus = "https://oss.sonatype.org/"
-      if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
-      else Some("releases" at nexus + "service/local/staging/deploy/maven2")
+      val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+      val v = (ThisBuild / version).value
+      if (v.endsWith("SNAPSHOT")) Some("central-snapshots" at centralSnapshots)
+      else localStaging.value
     },
     nativeArch := "x86_64",
     nativeCompiler := "gcc",

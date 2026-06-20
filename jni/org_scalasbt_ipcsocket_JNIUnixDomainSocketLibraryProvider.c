@@ -89,7 +89,9 @@ Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_readNative(
   errno = 0;
   jbyte *bytes = malloc(len);
   int bytes_read = read(fd, bytes, len);
-  (*env)->SetByteArrayRegion(env, buffer, offset, bytes_read, bytes);
+  if (bytes_read > 0) {
+    (*env)->SetByteArrayRegion(env, buffer, offset, bytes_read, bytes);
+  }
   free(bytes);
   THROW_ON_ERROR(bytes_read);
 }
