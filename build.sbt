@@ -105,13 +105,18 @@ buildWin32X86_64 / skip := {
   }, _.isEmpty)
 }
 Test / fork := true
+Test / javaOptions ++= {
+  import scala.util.Properties
+  if (Properties.isJavaAtLeast("11")) Seq("--enable-native-access=ALL-UNNAMED")
+  else Nil
+}
 Test / testGrouping := {
   val tests = (Test / definedTests).value
   tests
     .groupBy(_.name)
     .map {
       case (name, tests) =>
-        val options = ForkOptions()
+        val options = (Test / forkOptions).value
         new Tests.Group(name, tests, Tests.SubProcess(options))
     }
     .toSeq
