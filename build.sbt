@@ -105,6 +105,22 @@ buildWin32X86_64 / skip := {
   }, _.isEmpty)
 }
 Test / fork := true
+Test / javaOptions ++= {
+  import scala.util.Properties
+  if (Properties.isJavaAtLeast("11")) Seq("--enable-native-access=ALL-UNNAMED")
+  else Nil
+}
+Test / testGrouping := {
+  val tests = (Test / definedTests).value
+  tests
+    .groupBy(_.name)
+    .map {
+      case (name, tests) =>
+        val options = (Test / forkOptions).value
+        new Tests.Group(name, tests, Tests.SubProcess(options))
+    }
+    .toSeq
+}
 clangfmt / fileInputs += baseDirectory.value.toGlob / "jni" / "*.c"
 commands += Command.command("buildNativeArtifacts") { state =>
   "buildLinuxX86_64" :: "buildLinuxAarch64" :: "buildDarwin" :: "buildWin32X86_64" :: state
