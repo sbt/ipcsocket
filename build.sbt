@@ -134,7 +134,7 @@ Global / javaHome := {
   }
 }
 
-def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
+def nativeLibrarySettings(platform: String): Seq[Setting[?]] = {
   val key = TaskKey[Path](s"build${platform.head.toUpper}${platform.tail}")
   val shortPlatform =
     platform match {
@@ -165,7 +165,7 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
     },
     key / fileInputs += {
       val glob = if (shortPlatform == "win32") "*Win*.{c,h}" else "*Unix*.{c,h}"
-      baseDirectory.value.toGlob / "jni" / glob,
+      baseDirectory.value.toGlob / "jni" / glob
     },
     key / skip := ((ThisBuild / nativePlatform).value match {
       case `platform`                    => false
@@ -200,7 +200,7 @@ def nativeLibrarySettings(platform: String): Seq[Setting[_]] = {
 
 def eval(cmd: Seq[String], logger: Logger): Unit = {
   logger.debug(s"Running compilation: ${cmd mkString " "}")
-  val proc = new java.lang.ProcessBuilder(cmd: _*).start()
+  val proc = new java.lang.ProcessBuilder(cmd *).start()
   val thread = new Thread() {
     setDaemon(true)
     start()
