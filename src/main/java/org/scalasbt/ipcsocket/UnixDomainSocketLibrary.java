@@ -262,7 +262,14 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
       } else {
         op = UnixDomainSocketLibrary.FIONREAD;
       }
-      UnixDomainSocketLibrary.ioctl(fd, op, len);
+      final int r = UnixDomainSocketLibrary.ioctl(fd, op, len);
+      if (r != 0) {
+        if (pollRead(fd, 0)) {
+          return 1;
+        } else {
+          return 0;
+        }
+      }
       return len.getValue();
     } catch (final LastErrorException e) {
       if (pollRead(fd, 0)) {
