@@ -167,8 +167,15 @@ public class UnixDomainServerSocket extends ServerSocket {
     }
     try {
 
-      // Ensure any pending call to accept() fails.
-      provider.close(fd.getAndSet(-1));
+      // Ensure any pending call to accept() fails. On Linux, closing the socket doesn't wake a
+      // blocked accept(), but shutting it down does.
+      int socketFd = fd.getAndSet(-1);
+      try {
+        provider.shutdown(socketFd, UnixDomainSocketLibrary.SHUT_RDWR);
+      } catch (NativeErrorException e) {
+        // macOS doesn't support shutdown on a listening socket, but closing wakes accept() there
+      }
+      provider.close(socketFd);
       isClosed = true;
     } catch (NativeErrorException e) {
       throw new IOException(e);

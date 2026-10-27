@@ -64,6 +64,12 @@ public class ReferenceCountedFileDescriptor {
     } else {
       // Another thread has the FD. We'll close it when they release the reference.
       closePending = true;
+      // Wake a thread blocked in read or write, which a close won't do
+      try {
+        provider.shutdown(fd, UnixDomainSocketLibrary.SHUT_RDWR);
+      } catch (NativeErrorException e) {
+        // e.g. not connected: nothing to wake
+      }
     }
   }
 
