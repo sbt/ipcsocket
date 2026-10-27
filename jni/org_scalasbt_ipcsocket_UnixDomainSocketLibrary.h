@@ -93,14 +93,6 @@ JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_UnixDomainSocketLibrary_shutd
 
 /*
  * Class:     org_scalasbt_ipcsocket_UnixDomainSocketLibrary
- * Method:    ioctl
- * Signature: (ILcom/sun/jna/NativeLong;Lcom/sun/jna/ptr/IntByReference;)I
- */
-JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_UnixDomainSocketLibrary_ioctl
-  (JNIEnv *, jclass, jint, jobject, jobject);
-
-/*
- * Class:     org_scalasbt_ipcsocket_UnixDomainSocketLibrary
  * Method:    poll
  * Signature: (Lorg/scalasbt/ipcsocket/UnixDomainSocketLibrary/PollfdUn;II)I
  */
