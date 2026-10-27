@@ -280,8 +280,9 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
   }
 
   private void closeConnectedPipe(Handle handle) throws IOException {
-    provider.FlushFileBuffers(handle);
-    provider.DisconnectNamedPipe(handle);
+    // Not FlushFileBuffers and DisconnectNamedPipe: the flush waits until the client has read
+    // everything, and the disconnect discards what it hasn't. After a plain close, the client can
+    // still read the data, then sees a broken pipe.
     provider.CloseHandle(handle);
   }
 }
