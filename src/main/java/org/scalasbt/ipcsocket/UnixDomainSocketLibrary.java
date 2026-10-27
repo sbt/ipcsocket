@@ -18,6 +18,7 @@ limitations under the License.
 package org.scalasbt.ipcsocket;
 
 import com.sun.jna.LastErrorException;
+import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Platform;
@@ -181,8 +182,19 @@ public class UnixDomainSocketLibrary {
 
   public static native int shutdown(int fd, int how) throws LastErrorException;
 
-  public static native int ioctl(int fd, NativeLong param, IntByReference len)
-      throws LastErrorException;
+  /**
+   * ioctl is variadic, and on macOS arm64 variadic arguments are passed differently from regular
+   * ones. Direct mapping cannot express that, so ioctl goes through a varargs interface method.
+   */
+  private interface Variadic extends Library {
+    Variadic INSTANCE = Native.load(Platform.C_LIBRARY_NAME, Variadic.class);
+
+    int ioctl(int fd, NativeLong request, Object... args) throws LastErrorException;
+  }
+
+  public static int ioctl(int fd, NativeLong param, IntByReference len) throws LastErrorException {
+    return Variadic.INSTANCE.ioctl(fd, param, len);
+  }
 
   public static native int poll(PollfdUn fd, int nfds, int timeout) throws LastErrorException;
 }

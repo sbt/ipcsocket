@@ -12,11 +12,18 @@
 
 #include "org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider.h"
 #define UNUSED __attribute__((unused))
+/*
+ * errno is only meaningful when the call failed: a successful call may leave
+ * a stale value in it, and so may any JNI call made after it. Entering the VM
+ * from native may wait on a pthread condition variable (e.g. for a handshake),
+ * and on macOS an interrupted wait leaves EINTR|ECVCLEARED (260) in errno.
+ * Capture errno right after the call, and only when res < 0.
+ */
+#define ERRNO_OF(res) ((res) < 0 ? (errno ? errno : EIO) : 0)
 #define THROW_ON_ERROR(res)                                                    \
   do {                                                                         \
-    int err = errno;                                                           \
-    errno = 0;                                                                 \
-    return err ? -err : (int)res;                                              \
+    int result = (int)(res);                                                   \
+    return result < 0 ? -ERRNO_OF(result) : result;                            \
   } while (0);
 
 static void native_sockaddr(JNIEnv *env, struct sockaddr_un *native,
@@ -88,25 +95,31 @@ jint JNICALL
 Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_readNative(
     UNUSED JNIEnv *env, UNUSED jclass clazz, jint fd, jbyteArray buffer,
     jint offset, jint len) {
-  errno = 0;
   jbyte *bytes = malloc(len);
+  if (bytes == NULL) {
+    return -ENOMEM;
+  }
   int bytes_read = read(fd, bytes, len);
+  int err = ERRNO_OF(bytes_read);
   if (bytes_read > 0) {
     (*env)->SetByteArrayRegion(env, buffer, offset, bytes_read, bytes);
   }
   free(bytes);
-  THROW_ON_ERROR(bytes_read);
+  return err ? -err : bytes_read;
 }
 
 jint JNICALL
 Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_writeNative(
     UNUSED JNIEnv *env, UNUSED jclass clazz, jint fd, jbyteArray buffer,
     jint offset, jint len) {
-  errno = 0;
   jbyte *bytes = (*env)->GetByteArrayElements(env, buffer, 0);
+  if (bytes == NULL) {
+    return -ENOMEM;
+  }
   int bytes_written = write(fd, bytes + offset, len);
+  int err = ERRNO_OF(bytes_written);
   (*env)->ReleaseByteArrayElements(env, buffer, bytes, JNI_ABORT);
-  THROW_ON_ERROR(bytes_written);
+  return err ? -err : bytes_written;
 }
 
 jint JNICALL
