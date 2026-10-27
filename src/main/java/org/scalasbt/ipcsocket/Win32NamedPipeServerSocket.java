@@ -203,38 +203,50 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     try {
 
       int connectError = provider.ConnectNamedPipe(handle, overlapped);
-      if (connectError == -1) {
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
-      }
-
-      if (connectError == provider.ERROR_PIPE_CONNECTED()) {
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+      if (connectError == -1 || connectError == provider.ERROR_PIPE_CONNECTED()) {
+        return connected(handle);
       } else if (connectError == provider.ERROR_NO_DATA()) {
         // Client has connected and disconnected between CreateNamedPipe() and ConnectNamedPipe()
         // connection is broken, but it is returned it avoid loop here.
         // Actual error will happen for NGSession when it will try to read/write from/to pipe
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+        return connected(handle);
       } else if (connectError == provider.ERROR_IO_PENDING()) {
         if (!provider.GetOverlappedResult(handle, overlapped)) {
-          openHandles.remove(handle);
-          closeOpenPipe(handle);
-          throw new IOException(
-              "GetOverlappedResult() failed for connect operation: " + provider.GetLastError());
+          int error = provider.GetLastError();
+          throw connectFailed(
+              handle, "GetOverlappedResult() failed for connect operation: " + error);
         }
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+        return connected(handle);
       } else {
-        throw new IOException("ConnectNamedPipe() failed with: " + connectError);
+        throw connectFailed(handle, "ConnectNamedPipe() failed with: " + connectError);
       }
     } finally {
       provider.DeleteOverlapped(overlapped);
       provider.CloseHandle(connWaitable);
     }
+  }
+
+  /**
+   * Closes a pipe that failed to connect, unless close() has taken it and so caused the failure.
+   */
+  private IOException connectFailed(Handle handle, String message) throws IOException {
+    if (!openHandles.remove(handle)) {
+      return new SocketException("Socket is closed");
+    }
+    closeOpenPipe(handle);
+    return new IOException(message);
+  }
+
+  /**
+   * Hands a connected pipe to a new socket, unless close() has already taken the handle: by then it
+   * is closed, and Windows may have given its value to an unrelated object.
+   */
+  private Socket connected(Handle handle) throws IOException {
+    if (!openHandles.remove(handle)) {
+      throw new SocketException("Socket is closed");
+    }
+    connectedHandles.add(handle);
+    return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
   }
 
   public void close() throws IOException {

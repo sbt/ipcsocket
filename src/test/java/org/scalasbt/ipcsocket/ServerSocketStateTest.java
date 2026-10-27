@@ -77,7 +77,6 @@ public class ServerSocketStateTest extends BaseSocketSetup {
 
   @Test(timeout = 10000)
   public void closeDuringAcceptThrowsSocketException() throws Exception {
-    if (isWin) return;
     withSocket(
         sock -> {
           ServerSocket serverSocket = newServerSocket(sock);
