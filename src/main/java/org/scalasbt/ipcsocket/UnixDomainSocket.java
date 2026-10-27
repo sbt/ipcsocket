@@ -42,6 +42,7 @@ public class UnixDomainSocket extends Socket {
   private final String path;
   private static final int SHUT_RD = 0;
   private static final int SHUT_WR = 1;
+  private static final int EINTR = 4; // the same on Linux and macOS
 
   /** Creates a Unix domain socket backed by a file path. */
   public UnixDomainSocket(String path, boolean useJNI) throws IOException {
@@ -202,16 +203,15 @@ public class UnixDomainSocket extends Socket {
         if (fdToWrite == -1) {
           return;
         }
-        int ret = provider.write(fdToWrite, b, off, len);
-        if (ret != len) {
-          // This shouldn't happen with standard blocking Unix domain sockets.
-          throw new IOException(
-              "Could not write "
-                  + len
-                  + " bytes as requested "
-                  + "(wrote "
-                  + ret
-                  + " bytes instead)");
+        // A blocking write may still be short, or fail with EINTR, if a signal
+        // arrives during it; write the rest rather than fail the stream.
+        int written = 0;
+        while (written < len) {
+          try {
+            written += provider.write(fdToWrite, b, off + written, len - written);
+          } catch (NativeErrorException e) {
+            if (e.returnCode() != EINTR) throw e;
+          }
         }
       } catch (NativeErrorException e) {
         throw new IOException(e);
