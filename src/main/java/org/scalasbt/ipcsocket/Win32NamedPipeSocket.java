@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Win32NamedPipeSocket extends Socket {
   private static Handle createFile(String pipeName, boolean useJNI) throws IOException {
@@ -29,10 +30,8 @@ public class Win32NamedPipeSocket extends Socket {
     return provider.CreateFile(pipeName);
   }
 
-  private static CloseCallback emptyCallback() {
-    return new CloseCallback() {
-      public void onNamedPipeSocketClose(Handle handle) throws IOException {}
-    };
+  private static CloseCallback clientCallback(boolean useJNI) {
+    return handle -> Win32NamedPipeLibraryProvider.get(useJNI).CloseHandle(handle);
   }
 
   static final boolean DEFAULT_REQUIRE_STRICT_LENGTH = false;
@@ -44,6 +43,7 @@ public class Win32NamedPipeSocket extends Socket {
   private final Handle readerWaitable;
   private final Handle writerWaitable;
   private final Win32NamedPipeLibraryProvider provider;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
 
   interface CloseCallback {
     void onNamedPipeSocketClose(Handle handle) throws IOException;
@@ -86,11 +86,15 @@ public class Win32NamedPipeSocket extends Socket {
   }
 
   public Win32NamedPipeSocket(String pipeName) throws IOException {
-    this(createFile(pipeName, false), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH, false);
+    this(createFile(pipeName, false), clientCallback(false), DEFAULT_REQUIRE_STRICT_LENGTH, false);
   }
 
   public Win32NamedPipeSocket(String pipeName, boolean useJNI) throws IOException {
-    this(createFile(pipeName, useJNI), emptyCallback(), DEFAULT_REQUIRE_STRICT_LENGTH, useJNI);
+    this(
+        createFile(pipeName, useJNI),
+        clientCallback(useJNI),
+        DEFAULT_REQUIRE_STRICT_LENGTH,
+        useJNI);
   }
 
   @Override
@@ -105,7 +109,15 @@ public class Win32NamedPipeSocket extends Socket {
 
   @Override
   public void close() throws IOException {
-    closeCallback.onNamedPipeSocketClose(handle);
+    if (!closed.compareAndSet(false, true)) return;
+    try {
+      closeCallback.onNamedPipeSocketClose(handle);
+    } finally {
+      provider.CloseHandle(readerWaitable);
+      provider.CloseHandle(writerWaitable);
+      // getSoTimeout, called on every read, gives the base Socket an OS socket to close
+      super.close();
+    }
   }
 
   @Override
