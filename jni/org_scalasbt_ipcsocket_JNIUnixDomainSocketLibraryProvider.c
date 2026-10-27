@@ -14,8 +14,9 @@
 #define UNUSED __attribute__((unused))
 /*
  * errno is only meaningful when the call failed: a successful call may leave
- * a stale value in it, and so may any JNI call made after it (on macOS a JNI
- * call that blocks for a safepoint leaves psynch bits, e.g. 260, in errno).
+ * a stale value in it, and so may any JNI call made after it. Entering the VM
+ * from native may wait on a pthread condition variable (e.g. for a handshake),
+ * and on macOS an interrupted wait leaves EINTR|ECVCLEARED (260) in errno.
  * Capture errno right after the call, and only when res < 0.
  */
 #define ERRNO_OF(res) ((res) < 0 ? (errno ? errno : EIO) : 0)
