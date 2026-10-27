@@ -11,8 +11,8 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Reading to EOF closes the socket's file descriptor. Closing the socket afterwards must not close
- * that descriptor number again: by then the OS may have given the number to another file.
+ * Closing a socket after reading to EOF must close only its own file descriptor, not a number the
+ * OS has since given to another file.
  */
 public class CloseAfterEofTest extends BaseSocketSetup {
   @Test
