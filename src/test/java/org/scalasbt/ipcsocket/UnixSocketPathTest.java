@@ -34,8 +34,8 @@ public class UnixSocketPathTest extends BaseSocketSetup {
   @Test
   public void nonAsciiPath() throws IOException {
     if (isWin) return;
-    Path dir = Files.createTempDirectory("ipcsocket-jürgen");
-    String path = dir.resolve("söck").toString();
+    Path dir = Files.createTempDirectory("ipcsocket-j\u00fcrgen");
+    String path = dir.resolve("s\u00f6ck").toString();
     try {
       ServerSocket server = newServerSocket(path);
       try (Socket client = newClientSocket(path);
@@ -46,8 +46,24 @@ public class UnixSocketPathTest extends BaseSocketSetup {
         server.close();
       }
     } finally {
-      Files.deleteIfExists(dir.resolve("söck"));
+      Files.deleteIfExists(dir.resolve("s\u00f6ck"));
       Files.deleteIfExists(dir);
     }
+  }
+
+  @Test
+  public void outOfBoundsWriteIsAnError() throws IOException, InterruptedException {
+    if (isWin) return;
+    withSocket(
+        path -> {
+          ServerSocket server = newServerSocket(path);
+          try (Socket client = newClientSocket(path)) {
+            client.getOutputStream().write(new byte[4], 2, 100);
+            fail("write sent bytes past the end of the array");
+          } catch (IndexOutOfBoundsException e) {
+          } finally {
+            server.close();
+          }
+        });
   }
 }
