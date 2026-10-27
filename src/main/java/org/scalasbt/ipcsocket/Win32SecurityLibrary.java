@@ -18,10 +18,25 @@ import com.sun.jna.platform.win32.Kernel32Util;
 import com.sun.jna.platform.win32.W32Errors;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.Native;
+import com.sun.jna.Structure;
 
 public class Win32SecurityLibrary {
 
   private static final long SE_GROUP_LOGON_ID = 0xC0000000L;
+
+  /**
+   * The security descriptor references the ACL by address, and the SID lives in the token
+   * information buffer. Both are JNA memory, freed by the GC once unreachable.
+   */
+  private static class SecurityAttributesWithDacl extends SECURITY_ATTRIBUTES {
+    private final ACL acl;
+    private final Structure tokenInformation;
+
+    SecurityAttributesWithDacl(ACL acl, Structure tokenInformation) {
+      this.acl = acl;
+      this.tokenInformation = tokenInformation;
+    }
+  }
 
   public static SECURITY_ATTRIBUTES createSecurityWithLogonDacl(int accessMask) {
     return createSecurityWithDacl(accessMask, Win32SecurityLevel.LOGON_DACL);
@@ -36,8 +51,8 @@ public class Win32SecurityLibrary {
     ACL pAcl;
     int cbAcl = 0;
     PSIDByReference psid = new PSIDByReference();
-    if (securityLevel == Win32SecurityLevel.LOGON_DACL) getLogonSID(psid);
-    else getOwnerSID(psid);
+    Structure tokenInformation =
+        securityLevel == Win32SecurityLevel.LOGON_DACL ? logonSID(psid) : ownerSID(psid);
     int sidLength = Advapi32.INSTANCE.GetLengthSid(psid.getValue());
     cbAcl = Native.getNativeSize(ACL.class, null);
     cbAcl += Native.getNativeSize(ACCESS_ALLOWED_ACE.class, null);
@@ -51,7 +66,7 @@ public class Win32SecurityLibrary {
     Advapi32.INSTANCE.SetSecurityDescriptorDacl(sd, true, pAcl, false);
     Native.getLastError();
 
-    SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
+    SECURITY_ATTRIBUTES sa = new SecurityAttributesWithDacl(pAcl, tokenInformation);
     sa.dwLength = new DWORD(sd.size());
     sa.lpSecurityDescriptor = sd.getPointer();
     sa.bInheritHandle = false;
@@ -60,6 +75,11 @@ public class Win32SecurityLibrary {
   }
 
   public static void getOwnerSID(PSIDByReference psid) {
+    ownerSID(psid);
+  }
+
+  /** Sets psid to the owner SID, which lives in the returned buffer. */
+  private static WinNT.TOKEN_OWNER ownerSID(PSIDByReference psid) {
     HANDLEByReference phToken = new HANDLEByReference();
     try {
       Advapi32.INSTANCE.OpenProcessToken(
@@ -81,12 +101,18 @@ public class Win32SecurityLibrary {
           tokenInformationLength);
       Native.getLastError();
       psid.setValue(owner.Owner);
+      return owner;
     } finally {
       Kernel32Util.closeHandleRef(phToken);
     }
   }
 
   public static void getLogonSID(PSIDByReference psid) {
+    logonSID(psid);
+  }
+
+  /** Sets psid to the logon SID, which lives in the returned buffer. */
+  private static WinNT.TOKEN_GROUPS logonSID(PSIDByReference psid) {
     HANDLEByReference phToken = new HANDLEByReference();
     try {
       Advapi32.INSTANCE.OpenProcessToken(
@@ -111,7 +137,7 @@ public class Win32SecurityLibrary {
       for (SID_AND_ATTRIBUTES sidAndAttribute : groups.getGroups()) {
         if ((sidAndAttribute.Attributes & SE_GROUP_LOGON_ID) == SE_GROUP_LOGON_ID) {
           psid.setValue(sidAndAttribute.Sid);
-          return;
+          return groups;
         }
       }
       throw new RuntimeException("LogonSID was not found.");
