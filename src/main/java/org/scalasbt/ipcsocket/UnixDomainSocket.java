@@ -42,6 +42,7 @@ public class UnixDomainSocket extends Socket {
   private final String path;
   private static final int SHUT_RD = 0;
   private static final int SHUT_WR = 1;
+  private static final int EINTR = 4; // the same on Linux and macOS
 
   /** Creates a Unix domain socket backed by a file path. */
   public UnixDomainSocket(String path, boolean useJNI) throws IOException {
@@ -119,6 +120,17 @@ public class UnixDomainSocket extends Socket {
   }
 
   private class UnixDomainSocketInputStream extends InputStream {
+    public int available() throws IOException {
+      int socketFd = fd.acquire();
+      try {
+        return provider.available(socketFd);
+      } catch (final NativeErrorException e) {
+        throw new IOException(e.getMessage(), e);
+      } finally {
+        fd.release();
+      }
+    }
+
     public int read() throws IOException {
       byte[] buf = new byte[1];
       int result;
@@ -135,17 +147,20 @@ public class UnixDomainSocket extends Socket {
       if (len == 0) {
         return 0;
       }
-      int result = doRead(b, off, len);
-      if (result == 0) {
-        try {
-          provider.close(fd.acquire());
-        } catch (final NativeErrorException e) {
-          throw new IOException(
-              "Error closing " + fd.acquire() + (path == null ? "" : " for " + path));
+      int socketFd = fd.acquire();
+      try {
+        int result = doRead(b, off, len);
+        if (result == 0) {
+          // Close through fd, not the provider: fd then knows it is closed, and a later
+          // close() won't close the same number again (by then it may belong to another file).
+          // We hold a reference, so the close happens when the release below drops it.
+          fd.close();
+          result = -1;
         }
-        result = -1;
+        return result;
+      } finally {
+        fd.release();
       }
-      return result;
     }
 
     private int doRead(byte[] buf, int offset, int len) throws IOException {
@@ -182,16 +197,15 @@ public class UnixDomainSocket extends Socket {
         if (fdToWrite == -1) {
           return;
         }
-        int ret = provider.write(fdToWrite, b, off, len);
-        if (ret != len) {
-          // This shouldn't happen with standard blocking Unix domain sockets.
-          throw new IOException(
-              "Could not write "
-                  + len
-                  + " bytes as requested "
-                  + "(wrote "
-                  + ret
-                  + " bytes instead)");
+        // A blocking write may still be short, or fail with EINTR, if a signal
+        // arrives during it; write the rest rather than fail the stream.
+        int written = 0;
+        while (written < len) {
+          try {
+            written += provider.write(fdToWrite, b, off + written, len - written);
+          } catch (NativeErrorException e) {
+            if (e.returnCode() != EINTR) throw e;
+          }
         }
       } catch (NativeErrorException e) {
         throw new IOException(e);

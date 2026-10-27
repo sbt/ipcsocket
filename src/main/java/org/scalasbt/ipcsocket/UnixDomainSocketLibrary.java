@@ -18,7 +18,9 @@ limitations under the License.
 package org.scalasbt.ipcsocket;
 
 import com.sun.jna.LastErrorException;
+import com.sun.jna.Library;
 import com.sun.jna.Native;
+import com.sun.jna.NativeLong;
 import com.sun.jna.Platform;
 import com.sun.jna.Structure;
 import com.sun.jna.Union;
@@ -45,6 +47,11 @@ public class UnixDomainSocketLibrary {
 
   public static final int SHUT_RD = 0;
   public static final int SHUT_WR = 1;
+
+  public static final int POLL_IN = 1;
+
+  public static final NativeLong FIONREAD = new NativeLong(0x4004667FL);
+  public static final NativeLong FIONREAD_LINUX = new NativeLong(0x541BL);
 
   // Utility class, do not instantiate.
   private UnixDomainSocketLibrary() {}
@@ -125,6 +132,23 @@ public class UnixDomainSocketLibrary {
     }
   }
 
+  public static class PollfdUn extends Structure implements Structure.ByReference {
+    public int fd;
+    public short events;
+    public short revents;
+
+    public PollfdUn(int fd, short events, short revents) {
+      this.fd = fd;
+      this.events = events;
+      this.revents = revents;
+      allocateMemory();
+    }
+
+    protected List getFieldOrder() {
+      return Arrays.asList(new String[] {"fd", "events", "revents"});
+    }
+  }
+
   static {
     Native.register(Platform.C_LIBRARY_NAME);
   }
@@ -149,6 +173,22 @@ public class UnixDomainSocketLibrary {
   public static native int close(int fd) throws LastErrorException;
 
   public static native int shutdown(int fd, int how) throws LastErrorException;
+
+  /**
+   * ioctl is variadic, and on macOS arm64 variadic arguments are passed differently from regular
+   * ones. Direct mapping cannot express that, so ioctl goes through a varargs interface method.
+   */
+  private interface Variadic extends Library {
+    Variadic INSTANCE = Native.load(Platform.C_LIBRARY_NAME, Variadic.class);
+
+    int ioctl(int fd, NativeLong request, Object... args) throws LastErrorException;
+  }
+
+  public static int ioctl(int fd, NativeLong param, IntByReference len) throws LastErrorException {
+    return Variadic.INSTANCE.ioctl(fd, param, len);
+  }
+
+  public static native int poll(PollfdUn fd, int nfds, int timeout) throws LastErrorException;
 }
 
 class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvider {
@@ -215,6 +255,35 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
       throw new NativeErrorException(e.getErrorCode(), e.getMessage());
     } catch (final IOException e) {
       throw new NativeErrorException(-1, e.getMessage());
+    }
+  }
+
+  @Override
+  public int available(int fd) throws NativeErrorException {
+    try {
+      final IntByReference len = new IntByReference();
+      NativeLong op;
+      if (Platform.isLinux()) {
+        op = UnixDomainSocketLibrary.FIONREAD_LINUX;
+      } else {
+        op = UnixDomainSocketLibrary.FIONREAD;
+      }
+      UnixDomainSocketLibrary.ioctl(fd, op, len);
+      return len.getValue();
+    } catch (final LastErrorException e) {
+      try {
+        UnixDomainSocketLibrary.PollfdUn pollfd =
+            new UnixDomainSocketLibrary.PollfdUn(
+                fd, (short) UnixDomainSocketLibrary.POLL_IN, (short) 0);
+        UnixDomainSocketLibrary.poll(pollfd, 1, 0);
+        if ((((int) pollfd.revents) & UnixDomainSocketLibrary.POLL_IN) != 0) {
+          return 1;
+        } else {
+          return 0;
+        }
+      } catch (final LastErrorException e2) {
+        throw new NativeErrorException(e2.getErrorCode(), e2.getMessage());
+      }
     }
   }
 

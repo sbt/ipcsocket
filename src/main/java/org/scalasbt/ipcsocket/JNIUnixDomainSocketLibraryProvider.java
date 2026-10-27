@@ -44,6 +44,15 @@ class JNIUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
     return returnOrThrow(shutdownNative(fd, how), 0);
   }
 
+  public int available(int fd) throws NativeErrorException {
+    int result = availableNative(fd);
+    if (result < 0) {
+      return returnOrThrow(pollReadNative(fd, 0), 0);
+    } else {
+      return returnOrThrow(result, 0);
+    }
+  }
+
   private int returnOrThrow(int result, int threshold) throws NativeErrorException {
     if (result < threshold) {
       final String message = "Error " + (-result) + ": " + errString(-result);
@@ -69,6 +78,10 @@ class JNIUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   native int closeNative(int fd);
 
   native int shutdownNative(int fd, int how);
+
+  native int availableNative(int fd);
+
+  native int pollReadNative(int fd, int timeout);
 
   public native int maxSocketLength();
 

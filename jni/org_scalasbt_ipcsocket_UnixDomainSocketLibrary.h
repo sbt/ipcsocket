@@ -17,6 +17,8 @@ extern "C" {
 #define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_RD 0L
 #undef org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_WR
 #define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_SHUT_WR 1L
+#undef org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLL_IN
+#define org_scalasbt_ipcsocket_UnixDomainSocketLibrary_POLL_IN 1L
 /*
  * Class:     org_scalasbt_ipcsocket_UnixDomainSocketLibrary
  * Method:    socket
@@ -88,6 +90,14 @@ JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_UnixDomainSocketLibrary_close
  */
 JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_UnixDomainSocketLibrary_shutdown
   (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     org_scalasbt_ipcsocket_UnixDomainSocketLibrary
+ * Method:    poll
+ * Signature: (Lorg/scalasbt/ipcsocket/UnixDomainSocketLibrary/PollfdUn;II)I
+ */
+JNIEXPORT jint JNICALL Java_org_scalasbt_ipcsocket_UnixDomainSocketLibrary_poll
+  (JNIEnv *, jclass, jobject, jint, jint);
 
 #ifdef __cplusplus
 }
