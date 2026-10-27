@@ -54,7 +54,13 @@ public class UnixDomainSocket extends Socket {
               provider.socket(
                   UnixDomainSocketLibrary.PF_LOCAL, UnixDomainSocketLibrary.SOCK_STREAM, 0));
       int socketFd = fd.get();
-      provider.connect(socketFd, path.getBytes(), path.length());
+      byte[] address = path.getBytes();
+      try {
+        provider.connect(socketFd, address, address.length);
+      } catch (NativeErrorException e) {
+        provider.close(socketFd);
+        throw e;
+      }
       this.fd = new ReferenceCountedFileDescriptor(socketFd, provider);
       this.is = new UnixDomainSocketInputStream();
       this.os = new UnixDomainSocketOutputStream();
