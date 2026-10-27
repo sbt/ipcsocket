@@ -154,12 +154,10 @@ public class UnixDomainSocket extends Socket {
       try {
         int result = doRead(b, off, len);
         if (result == 0) {
-          try {
-            provider.close(socketFd);
-          } catch (final NativeErrorException e) {
-            throw new IOException(
-                "Error closing " + socketFd + (path == null ? "" : " for " + path));
-          }
+          // Close through fd, not the provider: fd then knows it is closed, and a later
+          // close() won't close the same number again (by then it may belong to another file).
+          // We hold a reference, so the close happens when the release below drops it.
+          fd.close();
           result = -1;
         }
         return result;
