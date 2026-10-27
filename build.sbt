@@ -105,6 +105,11 @@ buildWin32X86_64 / skip := {
   }, _.isEmpty)
 }
 Test / fork := true
+// tests that need JDK 11+ APIs (e.g. JFR); CI runs them in its JDK 25 jobs
+Test / unmanagedSourceDirectories ++= {
+  if (scala.util.Properties.isJavaAtLeast("11")) Seq((Test / sourceDirectory).value / "java-jdk11")
+  else Nil
+}
 Test / javaOptions ++= {
   import scala.util.Properties
   if (Properties.isJavaAtLeast("11")) Seq("--enable-native-access=ALL-UNNAMED")
