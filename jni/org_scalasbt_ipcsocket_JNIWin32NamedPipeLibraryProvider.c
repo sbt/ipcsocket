@@ -46,6 +46,7 @@
 
 static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
                                   BOOL logon);
+static void freeSecurityWithDacl(PSECURITY_ATTRIBUTES pSA);
 
 BOOL WINAPI CancelIoEx(_In_ HANDLE hFile, _In_opt_ LPOVERLAPPED lpOverlapped);
 
@@ -74,8 +75,7 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_CreateNamedPipeNati
       THROW_IO("Couldn't create named pipe for %s (%s)",
                (*env)->GetStringUTFChars(env, lpName, 0), buf);
     }
-    if (pSA)
-      HeapFree(GetProcessHeap(), 0, pSA);
+    freeSecurityWithDacl(pSA);
     return handle;
   } else {
     char buf[512];
@@ -377,7 +377,8 @@ Java_org_scalasbt_ipcsocket_JNIWin32NamedPipeLibraryProvider_getErrorMessage(
 
 static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
                                   BOOL logon) {
-  int result = 0;
+  int result = 1;
+  PACL pAcl = NULL;
   PSECURITY_DESCRIPTOR pSD = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
                                        SECURITY_DESCRIPTOR_MIN_LENGTH);
   if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
@@ -389,7 +390,6 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
     if (DEBUG)
       wprintf(L"Failed to initialize security descriptor %d %s\n",
               GetLastError(), buf);
-    result = 1;
     goto psdfail;
   }
   GetLastError();
@@ -402,10 +402,9 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
   PTOKEN_OWNER owner = NULL;
   if (logon) {
     GetTokenInformation(phToken, TokenGroups, NULL, 0, &tokenInformationLength);
-    groups =
-        (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                                 tokenInformationLength * sizeof(TOKEN_GROUPS));
-    GetTokenInformation(phToken, TokenOwner, groups, 0,
+    groups = (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                      tokenInformationLength);
+    GetTokenInformation(phToken, TokenGroups, groups, tokenInformationLength,
                         &tokenInformationLength);
     GetLastError();
     for (DWORD i = 0; i < groups->GroupCount; ++i) {
@@ -417,9 +416,8 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
     }
   } else {
     GetTokenInformation(phToken, TokenOwner, NULL, 0, &tokenInformationLength);
-    owner =
-        (PTOKEN_OWNER)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                                tokenInformationLength * sizeof(TOKEN_OWNER));
+    owner = (PTOKEN_OWNER)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                                    tokenInformationLength);
     GetTokenInformation(phToken, TokenOwner, owner, tokenInformationLength,
                         &tokenInformationLength);
     psid = owner->Owner;
@@ -430,7 +428,7 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
   DWORD cbAcl = sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid);
   cbAcl = (cbAcl + (sizeof(DWORD) - 1)) & 0xfffffffc;
 
-  PACL pAcl = HeapAlloc(GetProcessHeap(), 0, cbAcl);
+  pAcl = HeapAlloc(GetProcessHeap(), 0, cbAcl);
   if (!InitializeAcl(pAcl, cbAcl, ACL_REVISION)) {
     wchar_t buf[256];
     FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -439,7 +437,6 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
                    (sizeof(buf) / sizeof(wchar_t)), NULL);
     if (DEBUG)
       wprintf(L"Failed to initialize acl %d %s\n", GetLastError(), buf);
-    result = 1;
     goto exit;
   }
   if (!AddAccessAllowedAce(pAcl, ACL_REVISION, accessMask, psid)) {
@@ -450,7 +447,6 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
                    (sizeof(buf) / sizeof(wchar_t)), NULL);
     if (DEBUG)
       wprintf(L"Failed to add access allowed ace %d %s\n", GetLastError(), buf);
-    result = 1;
     goto exit;
   }
   if (!SetSecurityDescriptorDacl(pSD, TRUE, pAcl, FALSE)) {
@@ -462,18 +458,18 @@ static int createSecurityWithDacl(PSECURITY_ATTRIBUTES pSA, DWORD accessMask,
     if (DEBUG)
       wprintf(L"Failed to set security despcriptor %d %s\n", GetLastError(),
               buf);
-    result = 1;
-    pSA->nLength = 0;
-    pSA->lpSecurityDescriptor = NULL;
-    pSA->bInheritHandle = FALSE;
-  } else {
-    pSA->nLength = SECURITY_DESCRIPTOR_SIZE;
-    pSA->lpSecurityDescriptor = pSD;
-    pSA->bInheritHandle = FALSE;
+    goto exit;
   }
+  // The descriptor references the ACL, so freeSecurityWithDacl frees both
+  // after the pipe is created.
+  pSA->nLength = SECURITY_DESCRIPTOR_SIZE;
+  pSA->lpSecurityDescriptor = pSD;
+  pSA->bInheritHandle = FALSE;
+  result = 0;
 
 exit:
-  HeapFree(GetProcessHeap(), 0, pAcl);
+  if (result)
+    HeapFree(GetProcessHeap(), 0, pAcl);
 psidfail:
   if (groups)
     HeapFree(GetProcessHeap(), 0, groups);
@@ -481,7 +477,24 @@ psidfail:
     HeapFree(GetProcessHeap(), 0, owner);
   CloseHandle(phToken);
 psdfail:
-  HeapFree(GetProcessHeap(), 0, pSD);
+  if (result)
+    HeapFree(GetProcessHeap(), 0, pSD);
 
   return result;
+}
+
+static void freeSecurityWithDacl(PSECURITY_ATTRIBUTES pSA) {
+  if (!pSA)
+    return;
+  PSECURITY_DESCRIPTOR pSD = pSA->lpSecurityDescriptor;
+  if (pSD) {
+    BOOL present = FALSE;
+    BOOL defaulted = FALSE;
+    PACL pAcl = NULL;
+    if (GetSecurityDescriptorDacl(pSD, &present, &pAcl, &defaulted) &&
+        present && pAcl)
+      HeapFree(GetProcessHeap(), 0, pAcl);
+    HeapFree(GetProcessHeap(), 0, pSD);
+  }
+  HeapFree(GetProcessHeap(), 0, pSA);
 }
