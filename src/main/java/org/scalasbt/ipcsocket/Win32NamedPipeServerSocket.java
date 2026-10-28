@@ -129,9 +129,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               provider.FILE_GENERIC_READ(),
               securityLevel);
     } catch (final IOException e) {
-      throw new IOException(
-          String.format(
-              "Could not create lock for %s, error %d", lockPath, provider.GetLastError()));
+      throw new IOException("Could not create lock for " + lockPath, e);
     }
     if (!provider.DisconnectNamedPipe(lockHandle)) {
       throw new IOException(String.format("Could not disconnect lock %d", provider.GetLastError()));
@@ -186,8 +184,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               provider.FILE_ALL_ACCESS(),
               securityLevel);
     } catch (final IOException e) {
-      throw new IOException(
-          String.format("Could not create named pipe, error %d", provider.GetLastError()));
+      throw new IOException("Could not create named pipe " + path, e);
     }
     openHandles.add(handle);
     // a close() since the check above may have missed the handle; then nothing would end accept
