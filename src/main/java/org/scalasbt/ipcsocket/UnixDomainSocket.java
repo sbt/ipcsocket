@@ -54,7 +54,13 @@ public class UnixDomainSocket extends Socket {
               provider.socket(
                   UnixDomainSocketLibrary.PF_LOCAL, UnixDomainSocketLibrary.SOCK_STREAM, 0));
       int socketFd = fd.get();
-      provider.connect(socketFd, path.getBytes(), path.length());
+      byte[] address = path.getBytes();
+      try {
+        provider.connect(socketFd, address, address.length);
+      } catch (NativeErrorException e) {
+        provider.close(socketFd);
+        throw e;
+      }
       this.fd = new ReferenceCountedFileDescriptor(socketFd, provider);
       this.is = new UnixDomainSocketInputStream();
       this.os = new UnixDomainSocketOutputStream();
@@ -123,6 +129,14 @@ public class UnixDomainSocket extends Socket {
     fd.close();
   }
 
+  // The JNI provider passes off and len to native code unchecked
+  private static void checkBounds(byte[] b, int off, int len) {
+    if (off < 0 || len < 0 || len > b.length - off) {
+      throw new IndexOutOfBoundsException(
+          "off " + off + ", len " + len + ", array length " + b.length);
+    }
+  }
+
   private class UnixDomainSocketInputStream extends InputStream {
     public int available() throws IOException {
       int socketFd = fd.acquire();
@@ -148,6 +162,7 @@ public class UnixDomainSocket extends Socket {
     }
 
     public int read(byte[] b, int off, int len) throws IOException {
+      checkBounds(b, off, len);
       if (len == 0) {
         return 0;
       }
@@ -189,6 +204,7 @@ public class UnixDomainSocket extends Socket {
     }
 
     public void write(byte[] b, int off, int len) throws IOException {
+      checkBounds(b, off, len);
       if (len == 0) {
         return;
       }

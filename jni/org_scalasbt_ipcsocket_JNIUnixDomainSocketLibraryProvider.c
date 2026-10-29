@@ -26,9 +26,13 @@
     return result < 0 ? -ERRNO_OF(result) : result;                            \
   } while (0);
 
-static void native_sockaddr(JNIEnv *env, struct sockaddr_un *native,
-                            jobject array, jint len) {
+/* Returns 0, or -ENAMETOOLONG if the path and its terminating NUL don't fit. */
+static int native_sockaddr(JNIEnv *env, struct sockaddr_un *native,
+                           jobject array, jint len) {
   memset(native, 0, sizeof(struct sockaddr_un));
+  if (len < 0 || (size_t)len >= sizeof(native->sun_path)) {
+    return -ENAMETOOLONG;
+  }
   if (array) {
     jbyte *bytes = (*env)->GetByteArrayElements(env, (jbyteArray)array, 0);
     memcpy(native->sun_path, bytes, len);
@@ -38,6 +42,7 @@ static void native_sockaddr(JNIEnv *env, struct sockaddr_un *native,
 #ifdef __APPLE__
   native->sun_len = len + 2;
 #endif
+  return 0;
 }
 
 jint JNICALL
@@ -56,7 +61,9 @@ Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_bindNative(
   errno = 0;
   struct sockaddr_un addr;
   const struct sockaddr *sa = (struct sockaddr *)&addr;
-  native_sockaddr(env, &addr, path, len);
+  int err = native_sockaddr(env, &addr, path, len);
+  if (err)
+    return err;
   int res = bind(fd, sa, sizeof(struct sockaddr_un));
   THROW_ON_ERROR(res)
 }
@@ -85,7 +92,9 @@ Java_org_scalasbt_ipcsocket_JNIUnixDomainSocketLibraryProvider_connectNative(
     UNUSED JNIEnv *env, UNUSED jclass clazz, jint fd, jbyteArray path,
     jint len) {
   struct sockaddr_un addr;
-  native_sockaddr(env, &addr, path, len);
+  int err = native_sockaddr(env, &addr, path, len);
+  if (err)
+    return err;
   errno = 0;
   int res = connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_un));
   THROW_ON_ERROR(res);
