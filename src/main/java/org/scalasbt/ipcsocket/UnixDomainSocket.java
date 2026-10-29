@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import java.net.Socket;
+import java.net.SocketException;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -166,20 +167,9 @@ public class UnixDomainSocket extends Socket {
       if (len == 0) {
         return 0;
       }
-      int socketFd = fd.acquire();
-      try {
-        int result = doRead(b, off, len);
-        if (result == 0) {
-          // Close through fd, not the provider: fd then knows it is closed, and a later
-          // close() won't close the same number again (by then it may belong to another file).
-          // We hold a reference, so the close happens when the release below drops it.
-          fd.close();
-          result = -1;
-        }
-        return result;
-      } finally {
-        fd.release();
-      }
+      // End of stream only ends the peer's output; this side may still write
+      int result = doRead(b, off, len);
+      return result == 0 ? -1 : result;
     }
 
     private int doRead(byte[] buf, int offset, int len) throws IOException {
@@ -215,7 +205,7 @@ public class UnixDomainSocket extends Socket {
       try {
         int fdToWrite = fd.acquire();
         if (fdToWrite == -1) {
-          return;
+          throw new SocketException("Socket is closed");
         }
         // A blocking write may still be short, or fail with EINTR, if a signal
         // arrives during it; write the rest rather than fail the stream.
