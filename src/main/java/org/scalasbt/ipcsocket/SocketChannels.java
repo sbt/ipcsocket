@@ -226,41 +226,47 @@ public abstract class SocketChannels {
 
     @Override
     public SocketAddress getRemoteAddress() {
-      return this.socket.getLocalSocketAddress();
+      return this.socket.getRemoteSocketAddress();
     }
 
     @Override
     public final int write(ByteBuffer buffer) throws IOException {
-      byte[] bs = buffer.array();
+      byte[] bs = new byte[buffer.remaining()];
+      buffer.get(bs);
       this.socket.getOutputStream().write(bs);
       return bs.length;
     }
 
     @Override
     public final long write(ByteBuffer buffers[], int offset, int length) throws IOException {
-      if (length == 0 || buffers.length == 0) {
-        return 0;
-      } else {
-
-        return write(buffers[offset]);
+      long total = 0;
+      for (int i = offset; i < offset + length; i++) {
+        total += write(buffers[i]);
       }
+      return total;
     }
 
     @Override
     public final int read(ByteBuffer buffer) throws IOException {
+      if (!buffer.hasRemaining()) {
+        return 0;
+      }
       byte[] bs = new byte[buffer.remaining()];
       int size = this.socket.getInputStream().read(bs);
-      buffer.put(bs, buffer.position(), size);
+      if (size > 0) {
+        buffer.put(bs, 0, size);
+      }
       return size;
     }
 
     @Override
     public final long read(ByteBuffer buffers[], int offset, int length) throws IOException {
-      if (length == 0 || buffers.length == 0) {
-        return 0;
-      } else {
-        return read(buffers[offset]);
+      for (int i = offset; i < offset + length; i++) {
+        if (buffers[i].hasRemaining()) {
+          return read(buffers[i]);
+        }
       }
+      return 0;
     }
 
     @Override
