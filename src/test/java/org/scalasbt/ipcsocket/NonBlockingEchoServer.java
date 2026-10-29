@@ -24,12 +24,18 @@ public class NonBlockingEchoServer {
             try {
               clientChannel.configureBlocking(false);
               try {
-                ByteBuffer inBytes = SocketChannels.readAll(clientChannel, READ_TIMEOUT_MILI);
-                final String line =
-                    new String(inBytes.array(), "UTF-8").replace("\n", "").replace("\r", "");
-                System.out.println("server: " + line);
-                Thread.sleep(500);
-                clientChannel.write(inBytes.duplicate());
+                String rawLine;
+                do {
+                  ByteBuffer inBytes = SocketChannels.readAll(clientChannel, READ_TIMEOUT_MILI);
+                  rawLine = new String(inBytes.array(), "UTF-8");
+                  final String line =
+                      rawLine.replace("\n", "").replace("\r", "").replace("\u001a", "");
+                  // System.out.println("server: " + line);
+                  ByteBuffer outBytes = inBytes.duplicate();
+                  do {
+                    clientChannel.write(outBytes);
+                  } while (outBytes.remaining() > 0);
+                } while (!rawLine.contains("\u001a") && !rawLine.contains("\n"));
               } catch (SocketTimeoutException e) {
                 // if readAll doesn't complete in READ_TIMEOUT_MILI,
                 // SocketTimeoutException is thrown
@@ -38,7 +44,6 @@ public class NonBlockingEchoServer {
               }
             } catch (IOException e) {
               e.printStackTrace();
-            } catch (InterruptedException e) {
             }
             return true;
           });
