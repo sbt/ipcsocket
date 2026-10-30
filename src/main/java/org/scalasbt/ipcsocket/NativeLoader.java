@@ -10,13 +10,20 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.FileVisitor;
 import java.nio.file.FileVisitResult;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Set;
 
 class NativeLoader {
   private static final AtomicBoolean loaded = new AtomicBoolean(false);
@@ -34,23 +41,59 @@ class NativeLoader {
   private static final String pid =
       isWindows ? "" : ManagementFactory.getRuntimeMXBean().getName().replaceAll("@.*", "");
 
-  private static Path runtimeDir() {
-    String prop = System.getProperty("sbt.ipcsocket.tmpdir");
-    if (prop != null) {
-      return Paths.get(prop);
-    } else {
-      String runtimeDir = System.getenv("XDG_RUNTIME_DIR");
-      if (runtimeDir == null) {
-        runtimeDir = System.getProperty("java.io.tmpdir");
+  private static Path runtimeDir;
+
+  /**
+   * The directory to extract the library to. Without XDG_RUNTIME_DIR, the default has a predictable
+   * name in a shared temp directory. If another user created it first, they could swap the library
+   * before it is loaded, so then use a fresh private directory instead.
+   */
+  private static synchronized Path runtimeDir() throws IOException {
+    if (runtimeDir == null) {
+      String prop = System.getProperty("sbt.ipcsocket.tmpdir");
+      if (prop != null) {
+        runtimeDir = Files.createDirectories(Paths.get(prop));
+      } else {
+        String tmp = System.getenv("XDG_RUNTIME_DIR");
+        if (tmp == null) {
+          tmp = System.getProperty("java.io.tmpdir");
+        }
+        String home = System.getProperty("user.home");
+        if (home == null) {
+          home = "unknown_home";
+        }
+        final Path sbtDir = Paths.get(tmp).resolve(".sbt" + Integer.toString(home.hashCode()));
+        final Path dir = sbtDir.resolve("ipcsocket");
+        if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+          runtimeDir = Files.createDirectories(dir);
+        } else {
+          Files.createDirectories(sbtDir.getParent());
+          if (isPrivateDirectory(sbtDir) && isPrivateDirectory(dir)) {
+            runtimeDir = dir;
+          } else {
+            runtimeDir = Files.createTempDirectory(tempFilePrefix);
+            runtimeDir.toFile().deleteOnExit();
+          }
+        }
       }
-      String home = System.getProperty("user.home");
-      if (home == null) {
-        home = "unknown_home";
-      }
-      return Paths.get(runtimeDir)
-          .resolve(".sbt" + Integer.toString(home.hashCode()))
-          .resolve("ipcsocket");
     }
+    return runtimeDir;
+  }
+
+  /** Creates dir if needed, and checks that only this user can change what is in it. */
+  static boolean isPrivateDirectory(Path dir) throws IOException {
+    try {
+      Files.createDirectory(
+          dir, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+    } catch (final FileAlreadyExistsException e) {
+    }
+    final PosixFileAttributes attrs =
+        Files.readAttributes(dir, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+    final Set<PosixFilePermission> perms = attrs.permissions();
+    return attrs.isDirectory()
+        && attrs.owner().getName().equals(System.getProperty("user.name"))
+        && !perms.contains(PosixFilePermission.GROUP_WRITE)
+        && !perms.contains(PosixFilePermission.OTHERS_WRITE);
   }
 
   private static final String tempFilePrefix = "libsbtipcsocket";
@@ -81,7 +124,7 @@ class NativeLoader {
         final URL url = NativeLoader.class.getClassLoader().getResource(resource);
         if (url == null) throw new UnsatisfiedLinkError(resource + " not found on classpath");
         try {
-          final Path base = Files.createDirectories(runtimeDir());
+          final Path base = runtimeDir();
           final Path output = Files.createTempFile(base, tempFilePrefix, extension);
           try (final InputStream in = url.openStream();
               final FileChannel channel = FileChannel.open(output, StandardOpenOption.WRITE)) {
