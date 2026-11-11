@@ -18,12 +18,15 @@ limitations under the License.
 package org.scalasbt.ipcsocket;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Win32NamedPipeServerSocket extends ServerSocket {
   private static final String WIN32_PIPE_PREFIX = "\\\\.\\pipe\\";
@@ -38,6 +41,7 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
   private final Win32NamedPipeLibraryProvider provider;
   private final boolean useJNI;
   private final int securityLevel;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
 
   public Win32NamedPipeServerSocket(String path) throws IOException {
     this(Win32NamedPipeLibrary.PIPE_UNLIMITED_INSTANCES, path);
@@ -125,20 +129,47 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               provider.FILE_GENERIC_READ(),
               securityLevel);
     } catch (final IOException e) {
-      throw new IOException(
-          String.format(
-              "Could not create lock for %s, error %d", lockPath, provider.GetLastError()));
+      throw new IOException("Could not create lock for " + lockPath, e);
     }
     if (!provider.DisconnectNamedPipe(lockHandle)) {
       throw new IOException(String.format("Could not disconnect lock %d", provider.GetLastError()));
     }
   }
 
-  public void bind(SocketAddress endpoint) throws IOException {
+  public void bind(SocketAddress endpoint, int backlog) throws IOException {
     throw new IOException("Win32 named pipes do not support bind(), pass path to constructor");
   }
 
+  @Override
+  public boolean isBound() {
+    return true;
+  }
+
+  @Override
+  public boolean isClosed() {
+    return closed.get();
+  }
+
+  // There is no TCP address; the base class would open a TCP socket to look one up
+  @Override
+  public int getLocalPort() {
+    return -1;
+  }
+
+  @Override
+  public InetAddress getInetAddress() {
+    return null;
+  }
+
+  @Override
+  public SocketAddress getLocalSocketAddress() {
+    return null;
+  }
+
   public Socket accept() throws IOException {
+    if (closed.get()) {
+      throw new SocketException("Socket is closed");
+    }
     Handle handle;
     try {
       handle =
@@ -153,43 +184,38 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
               provider.FILE_ALL_ACCESS(),
               securityLevel);
     } catch (final IOException e) {
-      throw new IOException(
-          String.format("Could not create named pipe, error %d", provider.GetLastError()));
+      throw new IOException("Could not create named pipe " + path, e);
     }
     openHandles.add(handle);
+    // a close() since the check above may have missed the handle; then nothing would end accept
+    if (closed.get()) {
+      if (openHandles.remove(handle)) {
+        closeOpenPipe(handle);
+      }
+      throw new SocketException("Socket is closed");
+    }
 
     Handle connWaitable = provider.CreateEvent(true, false, null);
     Overlapped overlapped = provider.NewOverlapped(connWaitable);
     try {
 
       int connectError = provider.ConnectNamedPipe(handle, overlapped);
-      if (connectError == -1) {
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
-      }
-
-      if (connectError == provider.ERROR_PIPE_CONNECTED()) {
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+      if (connectError == -1 || connectError == provider.ERROR_PIPE_CONNECTED()) {
+        return connected(handle);
       } else if (connectError == provider.ERROR_NO_DATA()) {
         // Client has connected and disconnected between CreateNamedPipe() and ConnectNamedPipe()
         // connection is broken, but it is returned it avoid loop here.
         // Actual error will happen for NGSession when it will try to read/write from/to pipe
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+        return connected(handle);
       } else if (connectError == provider.ERROR_IO_PENDING()) {
         if (!provider.GetOverlappedResult(handle, overlapped)) {
-          openHandles.remove(handle);
-          closeOpenPipe(handle);
-          throw new IOException(
-              "GetOverlappedResult() failed for connect operation: " + provider.GetLastError());
+          int error = provider.GetLastError();
+          throw connectFailed(
+              handle, "GetOverlappedResult() failed for connect operation: " + error);
         }
-        openHandles.remove(handle);
-        connectedHandles.add(handle);
-        return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+        return connected(handle);
       } else {
-        throw new IOException("ConnectNamedPipe() failed with: " + connectError);
+        throw connectFailed(handle, "ConnectNamedPipe() failed with: " + connectError);
       }
     } finally {
       provider.DeleteOverlapped(overlapped);
@@ -197,7 +223,37 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
     }
   }
 
+  /**
+   * Closes a pipe that failed to connect, unless close() has taken it and so caused the failure.
+   */
+  private IOException connectFailed(Handle handle, String message) throws IOException {
+    if (!openHandles.remove(handle)) {
+      return new SocketException("Socket is closed");
+    }
+    closeOpenPipe(handle);
+    return new IOException(message);
+  }
+
+  /**
+   * Hands a connected pipe to a new socket, unless close() has already taken the handle: by then it
+   * is closed, and Windows may have given its value to an unrelated object.
+   */
+  private Socket connected(Handle handle) throws IOException {
+    if (!openHandles.remove(handle)) {
+      throw new SocketException("Socket is closed");
+    }
+    connectedHandles.add(handle);
+    return new Win32NamedPipeSocket(handle, closeCallback, requireStrictLength, useJNI);
+  }
+
   public void close() throws IOException {
+    // Releases the TCP socket the base class creates for options such as setSoTimeout. Before
+    // JDK 21, the base close() does nothing once isClosed() returns true, so call it first.
+    super.close();
+    // A second close would close lockHandle again, by then maybe another object's handle
+    if (!closed.compareAndSet(false, true)) {
+      return;
+    }
     try {
       List<Handle> handlesToClose = new ArrayList<>();
       openHandles.drainTo(handlesToClose);
@@ -221,8 +277,9 @@ public class Win32NamedPipeServerSocket extends ServerSocket {
   }
 
   private void closeConnectedPipe(Handle handle) throws IOException {
-    provider.FlushFileBuffers(handle);
-    provider.DisconnectNamedPipe(handle);
+    // Not FlushFileBuffers and DisconnectNamedPipe: the flush waits until the client has read
+    // everything, and the disconnect discards what it hasn't. After a plain close, the client can
+    // still read the data, then sees a broken pipe.
     provider.CloseHandle(handle);
   }
 }

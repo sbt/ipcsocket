@@ -18,9 +18,11 @@ limitations under the License.
 package org.scalasbt.ipcsocket;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -118,6 +120,38 @@ public class UnixDomainServerSocket extends ServerSocket {
     }
   }
 
+  @Override
+  public void bind(SocketAddress endpoint, int backlog) throws IOException {
+    // the backlog was given to the constructor
+    bind(endpoint);
+  }
+
+  @Override
+  public synchronized boolean isBound() {
+    return isBound;
+  }
+
+  @Override
+  public synchronized boolean isClosed() {
+    return isClosed;
+  }
+
+  // There is no TCP address; the base class would open a TCP socket to look one up
+  @Override
+  public int getLocalPort() {
+    return -1;
+  }
+
+  @Override
+  public InetAddress getInetAddress() {
+    return null;
+  }
+
+  @Override
+  public SocketAddress getLocalSocketAddress() {
+    return null;
+  }
+
   public synchronized void bind(SocketAddress endpoint) throws IOException {
     if (!(endpoint instanceof UnixDomainServerSocketAddress)) {
       throw new IllegalArgumentException(
@@ -146,32 +180,47 @@ public class UnixDomainServerSocket extends ServerSocket {
     // call to UnixDomainSocketLibrary.accept() will block
     // indefinitely, causing another thread's call to close() to deadlock.
     synchronized (this) {
-      if (!isBound) {
-        throw new IllegalStateException("Socket is not bound");
-      }
       if (isClosed) {
-        throw new IllegalStateException("Socket is already closed");
+        throw new SocketException("Socket is closed");
+      }
+      if (!isBound) {
+        throw new SocketException("Socket is not bound yet");
       }
     }
     try {
       int clientFd = provider.accept(fd.get());
       return new UnixDomainSocket(clientFd, useJNI);
     } catch (NativeErrorException e) {
+      // isClosed() is synchronized, so it waits for a close() that woke this accept() to finish
+      if (isClosed()) {
+        throw new SocketException("Socket is closed");
+      }
       throw new IOException(e);
     }
   }
 
   public synchronized void close() throws IOException {
     if (isClosed) {
-      throw new IllegalStateException("Socket is already closed");
+      return;
     }
+    // Releases the TCP socket the base class creates for options such as setSoTimeout. Before
+    // JDK 21, the base close() does nothing once isClosed() returns true, so call it first.
+    super.close();
     try {
-
-      // Ensure any pending call to accept() fails.
-      provider.close(fd.getAndSet(-1));
-      isClosed = true;
+      // Ensure any pending call to accept() fails. On Linux, closing the socket doesn't wake a
+      // blocked accept(), but shutting it down does.
+      int socketFd = fd.getAndSet(-1);
+      try {
+        provider.shutdown(socketFd, UnixDomainSocketLibrary.SHUT_RDWR);
+      } catch (NativeErrorException e) {
+        // macOS doesn't support shutdown on a listening socket, but closing wakes accept() there
+      }
+      provider.close(socketFd);
     } catch (NativeErrorException e) {
       throw new IOException(e);
+    } finally {
+      // The fd is gone even if closing it failed
+      isClosed = true;
     }
   }
 }
