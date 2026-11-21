@@ -21,15 +21,21 @@ public class BlockingEchoServer {
           () -> {
             try {
               clientChannel.configureBlocking(true);
-              ByteBuffer inBytes = SocketChannels.readAll(clientChannel);
-              final String line =
-                  new String(inBytes.array(), "UTF-8").replace("\n", "").replace("\r", "");
-              System.out.println("server: " + line);
-              Thread.sleep(500);
-              clientChannel.write(inBytes.duplicate());
+              String rawLine;
+              do {
+                ByteBuffer inBytes = SocketChannels.readAll(clientChannel);
+                rawLine = new String(inBytes.array(), "UTF-8");
+                final String line =
+                    rawLine.replace("\n", "").replace("\r", "").replace("\u001a", "");
+                // System.out.println("server: " + line);
+                ByteBuffer outBytes = inBytes.duplicate();
+                do {
+                  clientChannel.write(outBytes);
+                  // System.out.println("server: wrote " + writtenBytes + " bytes");
+                } while (outBytes.remaining() > 0);
+              } while (!rawLine.contains("\u001a") && !rawLine.contains("\n"));
             } catch (IOException e) {
               e.printStackTrace();
-            } catch (InterruptedException e) {
             }
             return true;
           });
