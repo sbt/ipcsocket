@@ -52,6 +52,18 @@ public class UnixDomainSocketLibrary {
 
   public static final NativeLong FIONREAD = new NativeLong(0x4004667FL);
   public static final NativeLong FIONREAD_LINUX = new NativeLong(0x541BL);
+  // Linux uses 0x541B on most architectures, but not on all of them:
+  // PowerPC, SPARC and Alpha use 0x4004667F, and MIPS uses 0x467F.
+  public static final NativeLong FIONREAD_LINUX_MIPS = new NativeLong(0x467FL);
+
+  static NativeLong fionread() {
+    if (!Platform.isLinux()) return FIONREAD;
+    if (Platform.isPPC() || Platform.isSPARC() || Platform.ARCH.startsWith("alpha")) {
+      return FIONREAD;
+    }
+    if (Platform.isMIPS()) return FIONREAD_LINUX_MIPS;
+    return FIONREAD_LINUX;
+  }
 
   // Utility class, do not instantiate.
   private UnixDomainSocketLibrary() {}
@@ -262,13 +274,7 @@ class JNAUnixDomainSocketLibraryProvider implements UnixDomainSocketLibraryProvi
   public int available(int fd) throws NativeErrorException {
     try {
       final IntByReference len = new IntByReference();
-      NativeLong op;
-      if (Platform.isLinux()) {
-        op = UnixDomainSocketLibrary.FIONREAD_LINUX;
-      } else {
-        op = UnixDomainSocketLibrary.FIONREAD;
-      }
-      UnixDomainSocketLibrary.ioctl(fd, op, len);
+      UnixDomainSocketLibrary.ioctl(fd, UnixDomainSocketLibrary.fionread(), len);
       return len.getValue();
     } catch (final LastErrorException e) {
       try {
